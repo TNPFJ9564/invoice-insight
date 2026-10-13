@@ -43,3 +43,8 @@ export function AppShell({ title, kicker, children }: { title: string; kicker: s
 }
 
 export const baht = (n: number) => Number(n || 0).toLocaleString("th-TH", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+export function Status({ s }: { s: string }) {
+  const ok = s === "ตรงกัน";
+  return <span className={`inline-block px-2 py-0.5 text-xs font-medium ${ok ? "bg-primary text-primary-foreground" : "border border-destructive text-destructive"}`}>{ok ? "✓ " : "! "}{s || "-"}</span>;
+}

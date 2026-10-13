@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
-import { AppShell, baht } from "@/components/AppShell";
+import { AppShell, Status, baht } from "@/components/AppShell";
 import { processInvoice, rematchItems, saveInvoice, type InvoiceDraft } from "@/lib/inventory.functions";
 
 export const Route = createFileRoute("/")({
@@ -188,7 +188,3 @@ function JobCard({ job, onChange, onSave }: { job: Job; onChange: (d: InvoiceDra
   );
 }
 
-export function Status({ s }: { s: string }) {
-  const okk = s === "ตรงกัน";
-  return <span className={`inline-block px-2 py-0.5 text-xs font-medium ${okk ? "bg-primary text-primary-foreground" : "border border-destructive text-destructive"}`}>{okk ? "✓ " : "! "}{s || "-"}</span>;
-}
