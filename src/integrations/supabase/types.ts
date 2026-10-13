@@ -14,7 +14,101 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      invoice_items: {
+        Row: {
+          common_name: string | null
+          created_at: string
+          gpu_code: string | null
+          id: string
+          invoice_id: string
+          product_name: string | null
+          quantity: number | null
+          status: string | null
+          total_price: number | null
+          tpu_code: string | null
+          unit_price: number | null
+        }
+        Insert: {
+          common_name?: string | null
+          created_at?: string
+          gpu_code?: string | null
+          id?: string
+          invoice_id: string
+          product_name?: string | null
+          quantity?: number | null
+          status?: string | null
+          total_price?: number | null
+          tpu_code?: string | null
+          unit_price?: number | null
+        }
+        Update: {
+          common_name?: string | null
+          created_at?: string
+          gpu_code?: string | null
+          id?: string
+          invoice_id?: string
+          product_name?: string | null
+          quantity?: number | null
+          status?: string | null
+          total_price?: number | null
+          tpu_code?: string | null
+          unit_price?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "invoice_items_invoice_id_fkey"
+            columns: ["invoice_id"]
+            isOneToOne: false
+            referencedRelation: "invoices"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      invoices: {
+        Row: {
+          company_name: string | null
+          created_at: string
+          grand_total: number | null
+          id: string
+          image_url: string | null
+          invoice_date: string | null
+          invoice_no: string | null
+          raw_text: string | null
+          salesperson: string | null
+          status: string | null
+          tax_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          company_name?: string | null
+          created_at?: string
+          grand_total?: number | null
+          id?: string
+          image_url?: string | null
+          invoice_date?: string | null
+          invoice_no?: string | null
+          raw_text?: string | null
+          salesperson?: string | null
+          status?: string | null
+          tax_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          company_name?: string | null
+          created_at?: string
+          grand_total?: number | null
+          id?: string
+          image_url?: string | null
+          invoice_date?: string | null
+          invoice_no?: string | null
+          raw_text?: string | null
+          salesperson?: string | null
+          status?: string | null
+          tax_id?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
