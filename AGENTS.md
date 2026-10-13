@@ -8,3 +8,5 @@
 > Commits you push to the connected branch sync back to Lovable and show up in
 > the editor, so keep the branch in a working state.
 <!-- LOVABLE:END -->
+
+- Inventory backend lives in src/lib/inventory.server.ts (Sheets/Drive via connector gateway, OCR via AI gateway, LINE push) wrapped by server fns in src/lib/inventory.functions.ts; Supabase tables have RLS with no policies and are accessed only via supabaseAdmin in server fns — why: no end-user auth yet, keeps data off the public API.
