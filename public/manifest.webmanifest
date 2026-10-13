@@ -1,0 +1,9 @@
+{
+  "name": "Sobprab Duugs Inventory",
+  "short_name": "SD Inventory",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#FFFFFF",
+  "theme_color": "#000000",
+  "icons": [{ "src": "/favicon.ico", "sizes": "64x64", "type": "image/x-icon" }]
+}
