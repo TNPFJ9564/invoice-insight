@@ -28,7 +28,7 @@ const toB64 = (f: File) => new Promise<{ base64: string; mime: string }>((res, r
     c.width = img.width * scale; c.height = img.height * scale;
     c.getContext("2d")!.drawImage(img, 0, 0, c.width, c.height);
     URL.revokeObjectURL(url);
-    res({ base64: c.toDataURL("image/jpeg", 0.88).split(",")[1], mime: "image/jpeg" });
+    res({ base64: c.toDataURL("image/jpeg", 0.88).split(",")[1] ?? "", mime: "image/jpeg" });
   };
   img.onerror = rej; img.src = url;
 });
@@ -44,7 +44,7 @@ function ScanPage() {
     const newJobs = list.map((f) => ({ key: crypto.randomUUID(), name: f.name, preview: URL.createObjectURL(f), state: "processing" as const }));
     setJobs((js) => [...newJobs, ...js]);
     await Promise.all(list.map(async (f, i) => {
-      const key = newJobs[i].key;
+      const key = newJobs[i]!.key;
       try {
         const { base64, mime } = await toB64(f);
         const r = await processInvoice({ data: { base64, mime, name: f.name } });

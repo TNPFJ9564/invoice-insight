@@ -94,8 +94,8 @@ export const systemStatus = createServerFn({ method: "GET" }).handler(async () =
   catch (e) { sheets = String((e as Error).message).slice(0, 200); }
   return {
     sheets, counts,
-    line: !!process.env.LINE_CHANNEL_ACCESS_TOKEN && !!process.env.LINE_TARGET_ID,
-    drive: !!process.env.GOOGLE_DRIVE_API_KEY, sheetId: s.SHEET_ID, folderId: s.DRIVE_FOLDER_ID,
+    line: !!process.env["LINE_CHANNEL_ACCESS_TOKEN"] && !!process.env["LINE_TARGET_ID"],
+    drive: !!process.env["GOOGLE_DRIVE_API_KEY"], sheetId: s.SHEET_ID, folderId: s.DRIVE_FOLDER_ID,
   };
 });
 

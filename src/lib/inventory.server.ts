@@ -4,7 +4,7 @@ export const DRIVE_FOLDER_ID = "1uQQUoMAjMpb7wo3Gy-yAHtQRZs3WYFRL";
 const GW = "https://connector-gateway.lovable.dev";
 
 function gwHeaders(connKeyEnv: string) {
-  const lk = process.env.LOVABLE_API_KEY;
+  const lk = process.env["LOVABLE_API_KEY"];
   const ck = process.env[connKeyEnv];
   if (!lk || !ck) throw new Error(`Missing LOVABLE_API_KEY or ${connKeyEnv}`);
   return { Authorization: `Bearer ${lk}`, "X-Connection-Api-Key": ck };
@@ -82,7 +82,7 @@ export type OcrResult = {
 };
 
 export async function runOcr(base64: string, mime: string): Promise<OcrResult> {
-  const key = process.env.LOVABLE_API_KEY;
+  const key = process.env["LOVABLE_API_KEY"];
   if (!key) throw new Error("Missing LOVABLE_API_KEY");
   const S = { type: "string" }, N = { type: "number" };
   const schema = {
@@ -157,7 +157,7 @@ const findCol = (h: string[], re: RegExp) => h.findIndex((c) => re.test(c ?? "")
 
 export type MatchedItem = OcrItem & {
   common_name: string; match_score: number;
-  po_product?: string; po_qty?: number; po_price?: number; status: string;
+  po_product?: string | undefined; po_qty?: number | undefined; po_price?: number | undefined; status: string;
 };
 
 export function matchItems(items: OcrItem[], ttmt: string[][], po: string[][]): MatchedItem[] {
@@ -209,8 +209,8 @@ export function matchItems(items: OcrItem[], ttmt: string[][], po: string[][]): 
 const fmt = (n: number) => Number(n || 0).toLocaleString("th-TH", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 export async function sendLine(inv: { invoice_no: string; company_name: string; invoice_date: string; salesperson: string; grand_total: number; image_url?: string; items: MatchedItem[] }) {
-  const token = process.env.LINE_CHANNEL_ACCESS_TOKEN;
-  const to = process.env.LINE_TARGET_ID;
+  const token = process.env["LINE_CHANNEL_ACCESS_TOKEN"];
+  const to = process.env["LINE_TARGET_ID"];
   if (!token || !to) return { sent: false, reason: "ยังไม่ได้ตั้งค่า LINE" };
   const row = (l: string, v: string) => ({ type: "box", layout: "horizontal", contents: [
     { type: "text", text: l, size: "xs", color: "#888888", flex: 2 },
