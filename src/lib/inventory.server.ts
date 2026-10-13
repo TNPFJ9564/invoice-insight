@@ -84,41 +84,61 @@ export type OcrResult = {
 export async function runOcr(base64: string, mime: string): Promise<OcrResult> {
   const key = process.env.LOVABLE_API_KEY;
   if (!key) throw new Error("Missing LOVABLE_API_KEY");
-  const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+  const S = { type: "string" }, N = { type: "number" };
+  const schema = {
+    type: "object", additionalProperties: false,
+    properties: {
+      company_name: S, tax_id: S, invoice_no: S, invoice_date: S, salesperson: S, grand_total: N, raw_text: S,
+      items: { type: "array", items: { type: "object", additionalProperties: false,
+        properties: { product_name: S, gpu_code: S, tpu_code: S, quantity: N, unit_price: N, total_price: N },
+        required: ["product_name", "gpu_code", "tpu_code", "quantity", "unit_price", "total_price"] } },
+    },
+    required: ["company_name", "tax_id", "invoice_no", "invoice_date", "salesperson", "grand_total", "raw_text", "items"],
+  };
+  const res = await fetch("https://ai.gateway.lovable.dev/v1/responses", {
     method: "POST",
-    headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
+    headers: { "Lovable-API-Key": key, Authorization: `Bearer ${key}`, "Content-Type": "application/json", "X-Lovable-AIG-SDK": "fetch" },
     body: JSON.stringify({
-      model: "google/gemini-2.5-pro",
-      messages: [
-        { role: "system", content: "You are an OCR engine for Thai pharmaceutical invoices. Extract data exactly as printed. Numbers as plain numbers (no commas). Tax ID 13 digits only. Dates as printed. Use empty string when missing. GPU/TPU codes only if printed on the bill." },
-        { role: "user", content: [
-          { type: "text", text: "Extract the invoice data." },
-          { type: "image_url", image_url: { url: `data:${mime};base64,${base64}` } },
-        ] },
-      ],
-      tools: [{ type: "function", function: { name: "invoice", parameters: {
-        type: "object",
-        properties: {
-          company_name: { type: "string" }, tax_id: { type: "string" }, invoice_no: { type: "string" },
-          invoice_date: { type: "string" }, salesperson: { type: "string" }, grand_total: { type: "number" },
-          raw_text: { type: "string", description: "Full OCR text of the bill" },
-          items: { type: "array", items: { type: "object", properties: {
-            product_name: { type: "string" }, gpu_code: { type: "string" }, tpu_code: { type: "string" },
-            quantity: { type: "number" }, unit_price: { type: "number" }, total_price: { type: "number" },
-          }, required: ["product_name", "quantity", "unit_price", "total_price"] } },
-        },
-        required: ["company_name", "tax_id", "invoice_no", "invoice_date", "salesperson", "grand_total", "items", "raw_text"],
-      } } }],
-      tool_choice: { type: "function", function: { name: "invoice" } },
+      model: "openai/gpt-6-astra",
+      stream: true,
+      store: false,
+      reasoning: { effort: "low" },
+      instructions: "You are an OCR engine for Thai pharmaceutical invoices. Extract data exactly as printed. Numbers as plain numbers (no commas). Tax ID 13 digits only. Dates as printed. Use empty string when missing. GPU/TPU codes only if printed on the bill. raw_text = full OCR text.",
+      input: [{ role: "user", content: [
+        { type: "input_text", text: "Extract the invoice data as JSON." },
+        { type: "input_image", image_url: `data:${mime};base64,${base64}` },
+      ] }],
+      text: { format: { type: "json_schema", name: "invoice", strict: true, schema } },
     }),
   });
   if (res.status === 429) throw new Error("ระบบ AI ถูกใช้งานหนาแน่น กรุณาลองใหม่อีกครั้ง");
   if (res.status === 402) throw new Error("เครดิต AI หมด กรุณาเติมเครดิตใน Workspace");
   await ok(res, "OCR");
-  const j = await res.json();
-  const args = j.choices?.[0]?.message?.tool_calls?.[0]?.function?.arguments;
-  if (!args) throw new Error("OCR ไม่สามารถอ่านเอกสารได้");
-  return JSON.parse(args) as OcrResult;
+  // consume SSE stream
+  const reader = res.body!.getReader();
+  const dec = new TextDecoder();
+  let buf = "", out = "", final = "";
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buf += dec.decode(value, { stream: true });
+    const lines = buf.split("\n");
+    buf = lines.pop() ?? "";
+    for (const l of lines) {
+      if (!l.startsWith("data:")) continue;
+      const d = l.slice(5).trim();
+      if (!d || d === "[DONE]") continue;
+      try {
+        const ev = JSON.parse(d);
+        if (ev.type === "response.output_text.delta") out += ev.delta;
+        else if (ev.type === "response.output_text.done") final = ev.text;
+        else if (ev.type === "response.failed" || ev.type === "error") throw new Error(JSON.stringify(ev).slice(0, 300));
+      } catch (e) { if (e instanceof Error && e.message.startsWith("{")) throw e; }
+    }
+  }
+  const text = final || out;
+  if (!text) throw new Error("OCR ไม่สามารถอ่านเอกสารได้");
+  return JSON.parse(text) as OcrResult;
 }
 
 // ---------- Matching ----------
