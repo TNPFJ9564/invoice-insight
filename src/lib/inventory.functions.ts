@@ -3,7 +3,7 @@ import { z } from "zod";
 
 const itemSchema = z.object({
   product_name: z.string(), common_name: z.string().default(""),
-  gpu_code: z.string().default(""), tpu_code: z.string().default(""),
+  gpu_code: z.string().default(""), tpu_code: z.string().default(""), unit: z.string().default(""),
   quantity: z.coerce.number(), unit_price: z.coerce.number(), total_price: z.coerce.number(),
   status: z.string().default(""), match_score: z.number().optional(),
   po_product: z.string().optional(), po_qty: z.number().optional(), po_price: z.number().optional(),
@@ -22,9 +22,9 @@ export const processInvoice = createServerFn({ method: "POST" })
     const [drive, ocr, refs] = await Promise.all([
       s.uploadToDrive(data.base64, data.mime, `${Date.now()}_${data.name}`).catch((e) => ({ id: "", url: "", error: String(e.message ?? e) })),
       s.runOcr(data.base64, data.mime),
-      s.loadReferenceSheets().catch((e) => { console.error(e); return { ttmt: [], po: [] }; }),
+      s.loadReferenceSheets().catch((e) => { console.error(e); return { ttmt: [] as string[][], po: [] as string[][] }; }),
     ]);
-    const items = s.matchItems(ocr.items ?? [], refs.ttmt, refs.po);
+    const items = s.matchItems(ocr.items ?? [], refs.ttmt, refs.po, { tax_id: ocr.tax_id, company_name: ocr.company_name });
     return {
       draft: { ...ocr, image_url: drive.url, items } as InvoiceDraft,
       driveError: "error" in drive ? drive.error : null,
@@ -33,11 +33,11 @@ export const processInvoice = createServerFn({ method: "POST" })
   });
 
 export const rematchItems = createServerFn({ method: "POST" })
-  .inputValidator((d) => z.object({ items: z.array(itemSchema) }).parse(d))
+  .inputValidator((d) => z.object({ items: z.array(itemSchema), tax_id: z.string().default(""), company_name: z.string().default("") }).parse(d))
   .handler(async ({ data }) => {
     const s = await import("./inventory.server");
     const refs = await s.loadReferenceSheets(true);
-    return s.matchItems(data.items.map((i) => ({ ...i, gpu_code: "", tpu_code: "" })), refs.ttmt, refs.po);
+    return s.matchItems(data.items, refs.ttmt, refs.po, { tax_id: data.tax_id, company_name: data.company_name });
   });
 
 export const saveInvoice = createServerFn({ method: "POST" })
@@ -56,7 +56,7 @@ export const saveInvoice = createServerFn({ method: "POST" })
     if (inv.items.length) {
       const { error: e2 } = await db.from("invoice_items").insert(inv.items.map((i) => ({
         invoice_id: row.id, product_name: i.product_name, common_name: i.common_name, gpu_code: i.gpu_code, tpu_code: i.tpu_code,
-        quantity: i.quantity, unit_price: i.unit_price, total_price: i.total_price, status: i.status,
+        quantity: i.quantity, unit: i.unit, unit_price: i.unit_price, total_price: i.total_price, status: i.status,
       })));
       if (e2) throw new Error(`บันทึกรายการไม่สำเร็จ: ${e2.message}`);
     }
@@ -64,7 +64,7 @@ export const saveInvoice = createServerFn({ method: "POST" })
     let sheetError: string | null = null;
     try {
       await s.appendInvRows(inv.items.map((i) => [ts, inv.invoice_no, inv.company_name, `'${inv.tax_id}`, inv.invoice_date, inv.salesperson,
-        i.gpu_code, i.tpu_code, i.product_name, i.quantity, i.unit_price, i.total_price, inv.grand_total, inv.image_url, i.common_name, i.status]));
+        i.gpu_code, i.tpu_code, i.product_name, i.quantity, i.unit, i.unit_price, i.total_price, inv.grand_total, inv.image_url, i.common_name, i.status]));
     } catch (e) { sheetError = String((e as Error).message); }
     const line = data.notify ? await s.sendLine({ ...inv, items: inv.items as any }) : { sent: false, reason: "ปิดการแจ้งเตือน" };
     return { id: row.id as string, sheetError, line };
@@ -102,5 +102,5 @@ export const systemStatus = createServerFn({ method: "GET" }).handler(async () =
 export const testLine = createServerFn({ method: "POST" }).handler(async () => {
   const s = await import("./inventory.server");
   return s.sendLine({ invoice_no: "TEST-001", company_name: "ทดสอบระบบ", invoice_date: "-", salesperson: "-", grand_total: 0,
-    items: [{ product_name: "ทดสอบ", common_name: "test", quantity: 1, unit_price: 0, total_price: 0, status: "ตรงกัน", match_score: 100 }] });
+    items: [{ product_name: "ทดสอบ", common_name: "test", gpu_code: "", tpu_code: "", unit: "กล่อง", quantity: 1, unit_price: 0, total_price: 0, status: "ตรงกัน", match_score: 100 }] });
 });
