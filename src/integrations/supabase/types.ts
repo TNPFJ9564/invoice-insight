@@ -26,6 +26,7 @@ export type Database = {
           status: string | null
           total_price: number | null
           tpu_code: string | null
+          unit: string | null
           unit_price: number | null
         }
         Insert: {
@@ -39,6 +40,7 @@ export type Database = {
           status?: string | null
           total_price?: number | null
           tpu_code?: string | null
+          unit?: string | null
           unit_price?: number | null
         }
         Update: {
@@ -52,6 +54,7 @@ export type Database = {
           status?: string | null
           total_price?: number | null
           tpu_code?: string | null
+          unit?: string | null
           unit_price?: number | null
         }
         Relationships: [
