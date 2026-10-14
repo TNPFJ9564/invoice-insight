@@ -4,8 +4,9 @@ import type { ReactNode } from "react";
 const nav = [
   { to: "/", label: "สแกนบิล", n: "01" },
   { to: "/history", label: "ประวัติ", n: "02" },
-  { to: "/items", label: "รายการยา", n: "03" },
-  { to: "/settings", label: "ตั้งค่า", n: "04" },
+  { to: "/gallery", label: "ภาพบิล", n: "03" },
+  { to: "/items", label: "รายการยา", n: "04" },
+  { to: "/settings", label: "ตั้งค่า", n: "05" },
 ] as const;
 
 export function AppShell({ title, kicker, children }: { title: string; kicker: string; children: ReactNode }) {
@@ -29,7 +30,7 @@ export function AppShell({ title, kicker, children }: { title: string; kicker: s
         <h1 className="mt-2 text-4xl md:text-6xl">{title}</h1>
         <div className="mt-8 md:mt-12">{children}</div>
       </main>
-      <nav aria-label="เมนูมือถือ" className="fixed inset-x-0 bottom-0 z-40 grid grid-cols-4 border-t bg-background md:hidden">
+      <nav aria-label="เมนูมือถือ" className="fixed inset-x-0 bottom-0 z-40 grid grid-cols-5 border-t bg-background md:hidden">
         {nav.map((n) => (
           <Link key={n.to} to={n.to} className="flex min-h-14 flex-col items-center justify-center text-muted-foreground"
             activeProps={{ className: "flex min-h-14 flex-col items-center justify-center bg-primary text-primary-foreground" }} activeOptions={{ exact: true }}>
