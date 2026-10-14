@@ -66,7 +66,7 @@ function History() {
                     {inv.invoice_items.map((it: any) => (
                       <li key={it.id} className="flex justify-between gap-4 border-b py-2">
                         <span><strong>{it.product_name}</strong><br /><span className="text-xs text-muted-foreground">{it.common_name} · GPU {it.gpu_code || "-"} · TPU {it.tpu_code || "-"}</span></span>
-                        <span className="text-right">{it.quantity} × {baht(it.unit_price)}<br /><strong>{baht(it.total_price)}</strong></span>
+                        <span className="text-right">{it.quantity} {it.unit} × {baht(it.unit_price)}<br /><strong>{baht(it.total_price)}</strong></span>
                       </li>
                     ))}
                   </ul>

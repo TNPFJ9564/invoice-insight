@@ -101,7 +101,7 @@ function JobCard({ job, onChange, onSave }: { job: Job; onChange: (d: InvoiceDra
   };
   const rematch = async () => {
     if (!d) return; setBusy(true);
-    try { onChange({ ...d, items: await rematchItems({ data: { items: d.items } }) as any }); } catch (e) { toast.error((e as Error).message); }
+    try { onChange({ ...d, items: await rematchItems({ data: { items: d.items, tax_id: d.tax_id, company_name: d.company_name } }) as any }); } catch (e) { toast.error((e as Error).message); }
     setBusy(false);
   };
   const sum = d?.items.reduce((s, i) => s + Number(i.total_price || 0), 0) ?? 0;
@@ -139,10 +139,10 @@ function JobCard({ job, onChange, onSave }: { job: Job; onChange: (d: InvoiceDra
                 <li key={i} className="border p-4">
                   <input aria-label="ชื่อสินค้า" className={`${field} font-bold`} value={it.product_name} onChange={(e) => setItem(i, "product_name", e.target.value)} />
                   <input aria-label="ชื่อสามัญ" placeholder="ชื่อสามัญ" className={field} value={it.common_name} onChange={(e) => setItem(i, "common_name", e.target.value)} />
-                  <div className="grid grid-cols-3 gap-3">
-                    {(["quantity", "unit_price", "total_price"] as const).map((k) => (
-                      <label key={k}><span className="label-caps text-muted-foreground">{k === "quantity" ? "จำนวน" : k === "unit_price" ? "ราคา/หน่วย" : "รวม"}</span>
-                        <input inputMode="decimal" className={field} value={it[k]} onChange={(e) => setItem(i, k, e.target.value)} /></label>
+                  <div className="grid grid-cols-4 gap-3">
+                    {(["quantity", "unit", "unit_price", "total_price"] as const).map((k) => (
+                      <label key={k}><span className="label-caps text-muted-foreground">{k === "quantity" ? "จำนวน" : k === "unit" ? "หน่วย" : k === "unit_price" ? "ราคา/หน่วย" : "รวม"}</span>
+                        <input inputMode={k === "unit" ? undefined : "decimal"} className={field} value={String(it[k] ?? "")} onChange={(e) => setItem(i, k, e.target.value)} /></label>
                     ))}
                   </div>
                   <p className="mt-2 text-xs text-muted-foreground">GPU {it.gpu_code || "-"} · TPU {it.tpu_code || "-"} · PO: {it.po_product ?? "-"} ({it.po_qty ?? "-"} × {it.po_price ?? "-"})</p>
@@ -155,12 +155,12 @@ function JobCard({ job, onChange, onSave }: { job: Job; onChange: (d: InvoiceDra
             <div className="mt-4 hidden overflow-x-auto md:block">
               <table className="w-full text-sm">
                 <thead><tr className="border-b-2 text-left">
-                  {["ชื่อการค้า", "ชื่อสามัญ", "GPU", "TPU", "จำนวน", "ราคา/หน่วย", "รวม", "PO", "สถานะ"].map((h) => <th key={h} className="label-caps py-2 pr-3">{h}</th>)}
+                  {["ชื่อการค้า", "ชื่อสามัญ", "GPU", "TPU", "จำนวน", "หน่วย", "ราคา/หน่วย", "รวม", "PO", "สถานะ"].map((h) => <th key={h} className="label-caps py-2 pr-3">{h}</th>)}
                 </tr></thead>
                 <tbody>
                   {d.items.map((it, i) => (
                     <tr key={i} className="border-b align-top">
-                      {(["product_name", "common_name", "gpu_code", "tpu_code", "quantity", "unit_price", "total_price"] as const).map((k) => (
+                      {(["product_name", "common_name", "gpu_code", "tpu_code", "quantity", "unit", "unit_price", "total_price"] as const).map((k) => (
                         <td key={k} className="pr-3"><input aria-label={k} className={`${field} min-w-16`} value={String(it[k] ?? "")} onChange={(e) => setItem(i, k, e.target.value)} /></td>
                       ))}
                       <td className="py-2 pr-3 text-xs text-muted-foreground">{it.po_product ?? "-"}<br />{it.po_qty ?? "-"} × {it.po_price ?? "-"}</td>

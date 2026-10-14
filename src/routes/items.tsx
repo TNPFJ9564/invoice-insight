@@ -36,7 +36,7 @@ function Items() {
       <div className="mt-4 overflow-x-auto">
         <table className="w-full min-w-[900px] text-sm">
           <thead><tr className="border-b-2 text-left">
-            {["เลขที่บิล", "วันที่", "ชื่อการค้า", "ชื่อสามัญ", "GPU", "TPU", "จำนวน", "ราคา/หน่วย", "รวม", "สถานะ"].map((h) => <th key={h} className="label-caps py-2 pr-3">{h}</th>)}
+            {["เลขที่บิล", "วันที่", "ชื่อการค้า", "ชื่อสามัญ", "GPU", "TPU", "จำนวน", "หน่วย", "ราคา/หน่วย", "รวม", "สถานะ"].map((h) => <th key={h} className="label-caps py-2 pr-3">{h}</th>)}
           </tr></thead>
           <tbody>
             {rows.map((r) => (
@@ -48,6 +48,7 @@ function Items() {
                 <td className="pr-3">{r.gpu_code}</td>
                 <td className="pr-3">{r.tpu_code}</td>
                 <td className="pr-3 text-right">{r.quantity}</td>
+                <td className="pr-3">{r.unit}</td>
                 <td className="pr-3 text-right">{baht(r.unit_price)}</td>
                 <td className="pr-3 text-right">{baht(r.total_price)}</td>
                 <td><Status s={r.status} /></td>

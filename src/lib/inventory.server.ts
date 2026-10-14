@@ -32,7 +32,7 @@ export async function loadReferenceSheets(force = false) {
 }
 
 export async function appendInvRows(rows: (string | number)[][]) {
-  const url = `${GW}/google_sheets/v4/spreadsheets/${SHEET_ID}/values/INV!A:P:append?valueInputOption=USER_ENTERED&insertDataOption=INSERT_ROWS`;
+  const url = `${GW}/google_sheets/v4/spreadsheets/${SHEET_ID}/values/INV!A:Q:append?valueInputOption=USER_ENTERED&insertDataOption=INSERT_ROWS`;
   await ok(
     await fetch(url, {
       method: "POST",
@@ -75,7 +75,7 @@ export async function uploadToDrive(base64: string, mime: string, name: string) 
 }
 
 // ---------- OCR (Lovable AI) ----------
-export type OcrItem = { product_name: string; gpu_code?: string; tpu_code?: string; quantity: number; unit_price: number; total_price: number };
+export type OcrItem = { product_name: string; common_name?: string; gpu_code?: string; tpu_code?: string; unit?: string; quantity: number; unit_price: number; total_price: number };
 export type OcrResult = {
   company_name: string; tax_id: string; invoice_no: string; invoice_date: string; salesperson: string;
   grand_total: number; raw_text: string; items: OcrItem[];
@@ -90,8 +90,8 @@ export async function runOcr(base64: string, mime: string): Promise<OcrResult> {
     properties: {
       company_name: S, tax_id: S, invoice_no: S, invoice_date: S, salesperson: S, grand_total: N, raw_text: S,
       items: { type: "array", items: { type: "object", additionalProperties: false,
-        properties: { product_name: S, gpu_code: S, tpu_code: S, quantity: N, unit_price: N, total_price: N },
-        required: ["product_name", "gpu_code", "tpu_code", "quantity", "unit_price", "total_price"] } },
+        properties: { product_name: S, common_name: S, gpu_code: S, tpu_code: S, quantity: N, unit: S, unit_price: N, total_price: N },
+        required: ["product_name", "common_name", "gpu_code", "tpu_code", "quantity", "unit", "unit_price", "total_price"] } },
     },
     required: ["company_name", "tax_id", "invoice_no", "invoice_date", "salesperson", "grand_total", "raw_text", "items"],
   };
@@ -103,7 +103,7 @@ export async function runOcr(base64: string, mime: string): Promise<OcrResult> {
       stream: true,
       store: false,
       reasoning: { effort: "low" },
-      instructions: "You are an OCR engine for Thai pharmaceutical invoices. Extract data exactly as printed. Numbers as plain numbers (no commas). Tax ID 13 digits only. Dates as printed. Use empty string when missing. GPU/TPU codes only if printed on the bill. raw_text = full OCR text.",
+      instructions: "You are an OCR engine for Thai pharmaceutical invoices. Extract data exactly as printed. Numbers as plain numbers (no commas). Tax ID 13 digits only. Dates as printed. Use empty string when missing. product_name = trade name as printed. common_name = generic name only if printed on the bill (often after the trade name or in parentheses), else empty. unit = counting unit of the quantity as printed (e.g. กล่อง, ขวด, แผง, เม็ด, box, vial). GPU/TPU codes only if printed on the bill. raw_text = full OCR text.",
       input: [{ role: "user", content: [
         { type: "input_text", text: "Extract the invoice data as JSON." },
         { type: "input_image", image_url: `data:${mime};base64,${base64}` },
@@ -160,45 +160,83 @@ export type MatchedItem = OcrItem & {
   po_product?: string | undefined; po_qty?: number | undefined; po_price?: number | undefined; status: string;
 };
 
-export function matchItems(items: OcrItem[], ttmt: string[][], po: string[][]): MatchedItem[] {
+const num = (v: unknown) => Number(String(v ?? "").replace(/[^0-9.-]/g, "")) || 0;
+const code = (v: unknown) => String(v ?? "").replace(/\D/g, "");
+
+/**
+ * Matching rules:
+ * 1. If the bill already gives common name + GPU + TPU, skip the TTMT lookup.
+ * 2. Otherwise look up TTMT: exact TPU/GPU first, else trade name (+ manufacturer vs company name).
+ * 3. Check against PO: exact GPU/TPU first, else Tax ID + quantity + unit price, else drug name within same Tax ID.
+ */
+export function matchItems(items: OcrItem[], ttmt: string[][], po: string[][], bill: { tax_id: string; company_name: string }): MatchedItem[] {
   const th = ttmt[0] ?? [];
-  const tTrade = findCol(th, /การค้า|trade|brand/i);
-  const tCommon = findCol(th, /สามัญ|generic|common/i);
-  const tGpu = findCol(th, /gpu/i), tTpu = findCol(th, /tpu/i);
+  const tGpu = findCol(th, /^\s*gpu/i), tTpu = findCol(th, /^\s*tpu/i);
+  const tActive = findCol(th, /activeingredient|สามัญ|generic/i), tStrength = findCol(th, /strength|ความแรง/i);
+  const tForm = findCol(th, /dispunit|รูปแบบ|form/i), tTrade = findCol(th, /tradename|การค้า|trade/i);
+  const tMfr = findCol(th, /manufacturer|ผู้ผลิต/i);
   const ph = po[0] ?? [];
-  const pName = findCol(ph, /ชื่อ|product|รายการ|item|การค้า/i);
-  const pQty = findCol(ph, /จำนวน|qty|quantity/i);
-  const pPrice = findCol(ph, /ราคา.*หน่วย|unit|ราคา|price/i);
-  const num = (v: unknown) => Number(String(v ?? "").replace(/[^0-9.-]/g, "")) || 0;
+  const pTax = findCol(ph, /tax/i), pName = findCol(ph, /drugs?\s*name|ชื่อยา/i);
+  const pQty = findCol(ph, /^\s*(qual|quan|qty|จำนวน)/i), pPrice = findCol(ph, /price\s*\/\s*unit|ราคา.*หน่วย/i);
+  const pGpu = findCol(ph, /gpu/i), pTpu = findCol(ph, /tpu/i);
+  const billTax = code(bill.tax_id);
+  const poRows = po.slice(1).filter((r) => r[pName]);
+  const commonOf = (r: string[]) => [r[tActive], r[tStrength], r[tForm]].filter(Boolean).join(" ");
 
   return items.map((it) => {
-    let best: string[] | null = null, bs = 0;
-    for (const r of ttmt.slice(1)) {
-      const s = Math.max(sim(it.product_name, r[tTrade] ?? ""), it.tpu_code && r[tTpu] === it.tpu_code ? 1 : 0);
-      if (s > bs) { bs = s; best = r; }
+    let gpu = code(it.gpu_code), tpu = code(it.tpu_code), common = (it.common_name ?? "").trim();
+    let score = 100;
+    const complete = !!(common && gpu && tpu);
+    let fromTtmt = complete;
+
+    if (!complete) {
+      let row: string[] | undefined;
+      if (tpu) row = ttmt.find((r) => code(r[tTpu]) === tpu);
+      if (!row && gpu) row = ttmt.find((r) => code(r[tGpu]) === gpu);
+      if (!row) {
+        let bs = 0;
+        for (const r of ttmt.slice(1)) {
+          const s = sim(it.product_name, r[tTrade] ?? "") + 0.15 * sim(bill.company_name, r[tMfr] ?? "");
+          if (s > bs) { bs = s; row = r; }
+        }
+        score = Math.round(Math.min(1, bs) * 100);
+        if (bs < 0.55) row = undefined;
+      }
+      if (row) {
+        fromTtmt = true;
+        gpu ||= code(row[tGpu]); tpu ||= code(row[tTpu]); common ||= commonOf(row);
+      }
     }
-    const t = bs >= 0.5 ? best : null;
-    let pBest: string[] | null = null, pbs = 0;
-    for (const r of po.slice(1)) {
-      const s = Math.max(sim(it.product_name, r[pName] ?? ""), t && tCommon >= 0 ? sim(t[tCommon] ?? "", r[pName] ?? "") : 0);
-      if (s > pbs) { pbs = s; pBest = r; }
+
+    // PO
+    let p: string[] | undefined;
+    if (tpu) p = poRows.find((r) => code(r[pTpu]) === tpu);
+    if (!p && gpu) p = poRows.find((r) => code(r[pGpu]) === gpu);
+    const sameTax = billTax ? poRows.filter((r) => code(r[pTax]) === billTax) : poRows;
+    if (!p) p = sameTax.find((r) => num(r[pQty]) === it.quantity && Math.abs(num(r[pPrice]) - it.unit_price) < 0.01);
+    if (!p) {
+      let bs = 0, best: string[] | undefined;
+      for (const r of sameTax) {
+        const s = Math.max(sim(it.product_name, r[pName] ?? ""), common ? sim(common, r[pName] ?? "") : 0);
+        if (s > bs) { bs = s; best = r; }
+      }
+      if (bs >= 0.55) p = best;
     }
-    const p = pbs >= 0.5 ? pBest : null;
     const poQty = p && pQty >= 0 ? num(p[pQty]) : undefined;
     const poPrice = p && pPrice >= 0 ? num(p[pPrice]) : undefined;
+    if (p && !common) common = p[pName] ?? "";
+    if (p && !gpu) gpu = code(p[pGpu]);
+    if (p && !tpu) tpu = code(p[pTpu]);
+
     const issues: string[] = [];
-    if (!t) issues.push("ไม่พบใน TTMT");
+    if (!fromTtmt && !p) issues.push("ไม่พบใน TTMT");
     if (!p) issues.push("ไม่พบใน PO");
     else {
       if (poQty !== undefined && poQty !== it.quantity) issues.push("จำนวนไม่ตรง PO");
       if (poPrice !== undefined && Math.abs(poPrice - it.unit_price) > 0.01) issues.push("ราคาไม่ตรง PO");
     }
     return {
-      ...it,
-      gpu_code: it.gpu_code || (t && tGpu >= 0 ? t[tGpu] : "") || "",
-      tpu_code: it.tpu_code || (t && tTpu >= 0 ? t[tTpu] : "") || "",
-      common_name: t && tCommon >= 0 ? t[tCommon] ?? "" : "",
-      match_score: Math.round(bs * 100),
+      ...it, unit: it.unit ?? "", gpu_code: gpu, tpu_code: tpu, common_name: common, match_score: score,
       po_product: p ? p[pName] : undefined, po_qty: poQty, po_price: poPrice,
       status: issues.length ? issues.join(", ") : "ตรงกัน",
     };
@@ -235,7 +273,7 @@ export async function sendLine(inv: { invoice_no: string; company_name: string; 
       { type: "text", text: `รายการ ${i + 1}–${Math.min(i + 5, inv.items.length)}`, size: "xxs", color: "#888888", weight: "bold" },
       ...inv.items.slice(i, i + 5).map((it) => ({ type: "box", layout: "vertical", contents: [
         { type: "text", text: it.product_name, size: "sm", weight: "bold", wrap: true },
-        { type: "text", text: `${it.common_name || "-"} · ${it.quantity} × ${fmt(it.unit_price)} = ${fmt(it.total_price)}`, size: "xxs", color: "#555555", wrap: true },
+        { type: "text", text: `${it.common_name || "-"} · ${it.quantity} ${it.unit ?? ""} × ${fmt(it.unit_price)} = ${fmt(it.total_price)}`, size: "xxs", color: "#555555", wrap: true },
         { type: "text", text: it.status, size: "xxs", color: it.status === "ตรงกัน" ? "#000000" : "#D10000" }] })),
     ] } });
   }
