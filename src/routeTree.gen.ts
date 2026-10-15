@@ -10,14 +10,25 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
+import { Route as AuthRouteImport } from './routes/auth'
 import { Route as GalleryRouteImport } from './routes/gallery'
 import { Route as HistoryRouteImport } from './routes/history'
 import { Route as ItemsRouteImport } from './routes/items'
-import { Route as SettingsRouteImport } from './routes/settings'
+import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticated/settings'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AuthenticatedRouteRoute = AuthenticatedRouteRouteImport.update({
+  id: '/_authenticated',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AuthRoute = AuthRouteImport.update({
+  id: '/auth',
+  path: '/auth',
   getParentRoute: () => rootRouteImport,
 } as any)
 const GalleryRoute = GalleryRouteImport.update({
@@ -35,48 +46,61 @@ const ItemsRoute = ItemsRouteImport.update({
   path: '/items',
   getParentRoute: () => rootRouteImport,
 } as any)
-const SettingsRoute = SettingsRouteImport.update({
+const AuthenticatedSettingsRoute = AuthenticatedSettingsRouteImport.update({
   id: '/settings',
   path: '/settings',
-  getParentRoute: () => rootRouteImport,
+  getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/auth': typeof AuthRoute
   '/gallery': typeof GalleryRoute
   '/history': typeof HistoryRoute
   '/items': typeof ItemsRoute
-  '/settings': typeof SettingsRoute
+  '/settings': typeof AuthenticatedSettingsRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/auth': typeof AuthRoute
   '/gallery': typeof GalleryRoute
   '/history': typeof HistoryRoute
   '/items': typeof ItemsRoute
-  '/settings': typeof SettingsRoute
+  '/settings': typeof AuthenticatedSettingsRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
+  '/auth': typeof AuthRoute
   '/gallery': typeof GalleryRoute
   '/history': typeof HistoryRoute
   '/items': typeof ItemsRoute
-  '/settings': typeof SettingsRoute
+  '/_authenticated/settings': typeof AuthenticatedSettingsRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/gallery' | '/history' | '/items' | '/settings'
+  fullPaths: '/' | '/auth' | '/gallery' | '/history' | '/items' | '/settings'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/gallery' | '/history' | '/items' | '/settings'
-  id: '__root__' | '/' | '/gallery' | '/history' | '/items' | '/settings'
+  to: '/' | '/auth' | '/gallery' | '/history' | '/items' | '/settings'
+  id:
+    | '__root__'
+    | '/'
+    | '/_authenticated'
+    | '/auth'
+    | '/gallery'
+    | '/history'
+    | '/items'
+    | '/_authenticated/settings'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
+  AuthRoute: typeof AuthRoute
   GalleryRoute: typeof GalleryRoute
   HistoryRoute: typeof HistoryRoute
   ItemsRoute: typeof ItemsRoute
-  SettingsRoute: typeof SettingsRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -86,6 +110,20 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/_authenticated': {
+      id: '/_authenticated'
+      path: ''
+      fullPath: '/'
+      preLoaderRoute: typeof AuthenticatedRouteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/auth': {
+      id: '/auth'
+      path: '/auth'
+      fullPath: '/auth'
+      preLoaderRoute: typeof AuthRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/gallery': {
@@ -109,22 +147,34 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ItemsRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/settings': {
-      id: '/settings'
+    '/_authenticated/settings': {
+      id: '/_authenticated/settings'
       path: '/settings'
       fullPath: '/settings'
-      preLoaderRoute: typeof SettingsRouteImport
-      parentRoute: typeof rootRouteImport
+      preLoaderRoute: typeof AuthenticatedSettingsRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
     }
   }
 }
 
+interface AuthenticatedRouteRouteChildren {
+  AuthenticatedSettingsRoute: typeof AuthenticatedSettingsRoute
+}
+
+const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
+  AuthenticatedSettingsRoute: AuthenticatedSettingsRoute,
+}
+
+const AuthenticatedRouteRouteWithChildren =
+  AuthenticatedRouteRoute._addFileChildren(AuthenticatedRouteRouteChildren)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
+  AuthRoute: AuthRoute,
   GalleryRoute: GalleryRoute,
   HistoryRoute: HistoryRoute,
   ItemsRoute: ItemsRoute,
-  SettingsRoute: SettingsRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
