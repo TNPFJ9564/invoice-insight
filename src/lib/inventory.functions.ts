@@ -1,5 +1,17 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
+import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+
+const requireAdmin = async (context: { supabase: any; userId: string }) => {
+  const { data } = await context.supabase.rpc("has_role", { _user_id: context.userId, _role: "admin" });
+  if (!data) throw new Error("เฉพาะผู้ดูแลระบบเท่านั้น");
+};
+
+export const checkAdmin = createServerFn({ method: "GET" }).middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { data } = await (context.supabase as any).rpc("has_role", { _user_id: context.userId, _role: "admin" });
+    return { isAdmin: !!data };
+  });
 
 const itemSchema = z.object({
   product_name: z.string(), common_name: z.string().default(""),
@@ -87,7 +99,8 @@ export const deleteInvoice = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
-export const systemStatus = createServerFn({ method: "GET" }).handler(async () => {
+export const systemStatus = createServerFn({ method: "GET" }).middleware([requireSupabaseAuth]).handler(async ({ context }) => {
+  await requireAdmin(context as any);
   const s = await import("./inventory.server");
   let sheets = "ok", counts = { ttmt: 0, po: 0 };
   try { const r = await s.loadReferenceSheets(true); counts = { ttmt: r.ttmt.length - 1, po: r.po.length - 1 }; }
@@ -99,7 +112,8 @@ export const systemStatus = createServerFn({ method: "GET" }).handler(async () =
   };
 });
 
-export const testLine = createServerFn({ method: "POST" }).handler(async () => {
+export const testLine = createServerFn({ method: "POST" }).middleware([requireSupabaseAuth]).handler(async ({ context }) => {
+  await requireAdmin(context as any);
   const s = await import("./inventory.server");
   return s.sendLine({ invoice_no: "TEST-001", company_name: "ทดสอบระบบ", invoice_date: "-", salesperson: "-", grand_total: 0,
     items: [{ product_name: "ทดสอบ", common_name: "test", gpu_code: "", tpu_code: "", unit: "กล่อง", quantity: 1, unit_price: 0, total_price: 0, status: "ตรงกัน", match_score: 100 }] });
