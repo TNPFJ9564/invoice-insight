@@ -118,3 +118,9 @@ export const testLine = createServerFn({ method: "POST" }).middleware([requireSu
   return s.sendLine({ invoice_no: "TEST-001", company_name: "ทดสอบระบบ", invoice_date: "-", salesperson: "-", grand_total: 0,
     items: [{ product_name: "ทดสอบ", common_name: "test", gpu_code: "", tpu_code: "", unit: "กล่อง", quantity: 1, unit_price: 0, total_price: 0, status: "ตรงกัน", match_score: 100 }] });
 });
+
+export const dashboardKpi = createServerFn({ method: "GET" }).handler(async () => {
+  const s = await import("./inventory.server");
+  const [refs, inv] = await Promise.all([s.loadReferenceSheets(), s.loadInvSheet()]);
+  return s.computeKpi(refs.po, inv);
+});

@@ -7,6 +7,7 @@ const nav = [
   { to: "/gallery", label: "ภาพบิล", n: "03" },
   { to: "/items", label: "รายการยา", n: "04" },
   { to: "/settings", label: "ตั้งค่า", n: "05" },
+  { to: "/dashboard", label: "แดชบอร์ด", n: "06" },
 ] as const;
 
 export function AppShell({ title, kicker, children }: { title: string; kicker: string; children: ReactNode }) {
@@ -30,7 +31,7 @@ export function AppShell({ title, kicker, children }: { title: string; kicker: s
         <h1 className="mt-2 text-4xl md:text-6xl">{title}</h1>
         <div className="mt-8 md:mt-12">{children}</div>
       </main>
-      <nav aria-label="เมนูมือถือ" className="fixed inset-x-0 bottom-0 z-40 grid grid-cols-5 border-t bg-background md:hidden">
+      <nav aria-label="เมนูมือถือ" className="fixed inset-x-0 bottom-0 z-40 grid grid-cols-6 border-t bg-background md:hidden">
         {nav.map((n) => (
           <Link key={n.to} to={n.to} className="flex min-h-14 flex-col items-center justify-center text-muted-foreground"
             activeProps={{ className: "flex min-h-14 flex-col items-center justify-center bg-primary text-primary-foreground" }} activeOptions={{ exact: true }}>
