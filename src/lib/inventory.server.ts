@@ -43,6 +43,13 @@ export async function appendInvRows(rows: (string | number)[][]) {
   );
 }
 
+export async function loadInvSheet() {
+  const url = `${GW}/google_sheets/v4/spreadsheets/${SHEET_ID}/values/INV!A1:Q5000`;
+  const res = await ok(await fetch(url, { headers: gwHeaders("GOOGLE_SHEETS_API_KEY") }), "Read INV");
+  const j = (await res.json()) as { values?: string[][] };
+  return j.values ?? [];
+}
+
 // ---------- Drive ----------
 export async function uploadToDrive(base64: string, mime: string, name: string) {
   const headers = gwHeaders("GOOGLE_DRIVE_API_KEY");
