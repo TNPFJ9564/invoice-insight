@@ -43,6 +43,13 @@ export async function appendInvRows(rows: (string | number)[][]) {
   );
 }
 
+export async function loadInvSheet() {
+  const url = `${GW}/google_sheets/v4/spreadsheets/${SHEET_ID}/values/INV!A1:Q5000`;
+  const res = await ok(await fetch(url, { headers: gwHeaders("GOOGLE_SHEETS_API_KEY") }), "Read INV");
+  const j = (await res.json()) as { values?: string[][] };
+  return j.values ?? [];
+}
+
 // ---------- Drive ----------
 export async function uploadToDrive(base64: string, mime: string, name: string) {
   const headers = gwHeaders("GOOGLE_DRIVE_API_KEY");
@@ -241,6 +248,69 @@ export function matchItems(items: OcrItem[], ttmt: string[][], po: string[][], b
       status: issues.length ? issues.join(", ") : "ตรงกัน",
     };
   });
+}
+
+// ---------- KPI dashboard (PO vs INV) ----------
+export type KpiResult = {
+  poCount: number; poValue: number; deliveredCount: number; deliveredValue: number;
+  pendingCount: number; pendingValue: number; deliveredPct: number;
+  invoiceCount: number; supplierCount: number; issueCount: number;
+  topPending: { name: string; company: string; qty: number; value: number }[];
+};
+
+/**
+ * A PO line counts as delivered when an INV row matches it by TPU/GPU code,
+ * else by Tax ID + quantity + unit price, else by drug name within the same Tax ID.
+ */
+export function computeKpi(po: string[][], inv: string[][]): KpiResult {
+  const ph = po[0] ?? [];
+  const pTax = findCol(ph, /tax/i), pName = findCol(ph, /drugs?\s*name|ชื่อยา/i);
+  const pQty = findCol(ph, /^\s*(qual|quan|qty|จำนวน)/i), pPrice = findCol(ph, /price\s*\/\s*unit|ราคา.*หน่วย/i);
+  const pGpu = findCol(ph, /gpu/i), pTpu = findCol(ph, /tpu/i);
+  const pCompany = findCol(ph, /company|บริษัท|supplier|vendor/i);
+  // INV fixed columns: B invoice_no, C company, D tax, I product, J qty, L unit_price, M total, Q status
+  const invRows = inv.slice(1).filter((r) => r[1] || r[8]);
+  const poRows = po.slice(1).filter((r) => r[pName]);
+
+  const delivered = new Array(poRows.length).fill(false);
+  poRows.forEach((r, i) => {
+    const gpu = code(r[pGpu]), tpu = code(r[pTpu]), tax = code(r[pTax]);
+    const qty = num(r[pQty]), price = num(r[pPrice]);
+    let hit: string[] | undefined;
+    if (tpu) hit = invRows.find((v) => code(v[7]) === tpu);
+    if (!hit && gpu) hit = invRows.find((v) => code(v[6]) === gpu);
+    const sameTax = tax ? invRows.filter((v) => code(v[3]) === tax) : invRows;
+    if (!hit) hit = sameTax.find((v) => num(v[9]) === qty && Math.abs(num(v[11]) - price) < 0.01);
+    if (!hit) hit = sameTax.find((v) => sim(v[8] ?? "", r[pName] ?? "") >= 0.6);
+    delivered[i] = !!hit;
+  });
+
+  const valueOf = (r: string[]) => num(r[pQty]) * num(r[pPrice]);
+  const poValue = poRows.reduce((s, r) => s + valueOf(r), 0);
+  const deliveredRows = poRows.filter((_, i) => delivered[i]);
+  const pendingRows = poRows.filter((_, i) => !delivered[i]);
+  const deliveredValue = deliveredRows.reduce((s, r) => s + valueOf(r), 0);
+  const pendingValue = poValue - deliveredValue;
+
+  const byName = new Map<string, { name: string; company: string; qty: number; value: number }>();
+  for (const r of pendingRows) {
+    const k = norm(r[pName] ?? "");
+    const cur = byName.get(k) ?? { name: r[pName] ?? "-", company: pCompany >= 0 ? (r[pCompany] ?? "") : "", qty: 0, value: 0 };
+    cur.qty += num(r[pQty]); cur.value += valueOf(r);
+    byName.set(k, cur);
+  }
+  const topPending = [...byName.values()].sort((a, b) => b.value - a.value).slice(0, 10);
+
+  return {
+    poCount: poRows.length, poValue,
+    deliveredCount: deliveredRows.length, deliveredValue,
+    pendingCount: pendingRows.length, pendingValue,
+    deliveredPct: poRows.length ? Math.round((deliveredRows.length / poRows.length) * 100) : 0,
+    invoiceCount: new Set(invRows.map((r) => r[1]).filter(Boolean)).size,
+    supplierCount: new Set(invRows.map((r) => code(r[3])).filter(Boolean)).size,
+    issueCount: invRows.filter((r) => (r[16] ?? "") && r[16] !== "ตรงกัน").length,
+    topPending,
+  };
 }
 
 // ---------- LINE ----------
