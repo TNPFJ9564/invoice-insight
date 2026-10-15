@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
+import { Route as AuthRouteImport } from './routes/auth'
 import { Route as GalleryRouteImport } from './routes/gallery'
 import { Route as HistoryRouteImport } from './routes/history'
 import { Route as ItemsRouteImport } from './routes/items'
@@ -23,6 +24,11 @@ const IndexRoute = IndexRouteImport.update({
 } as any)
 const AuthenticatedRouteRoute = AuthenticatedRouteRouteImport.update({
   id: '/_authenticated',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AuthRoute = AuthRouteImport.update({
+  id: '/auth',
+  path: '/auth',
   getParentRoute: () => rootRouteImport,
 } as any)
 const GalleryRoute = GalleryRouteImport.update({
@@ -48,6 +54,7 @@ const AuthenticatedSettingsRoute = AuthenticatedSettingsRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/auth': typeof AuthRoute
   '/gallery': typeof GalleryRoute
   '/history': typeof HistoryRoute
   '/items': typeof ItemsRoute
@@ -55,6 +62,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/auth': typeof AuthRoute
   '/gallery': typeof GalleryRoute
   '/history': typeof HistoryRoute
   '/items': typeof ItemsRoute
@@ -64,6 +72,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
+  '/auth': typeof AuthRoute
   '/gallery': typeof GalleryRoute
   '/history': typeof HistoryRoute
   '/items': typeof ItemsRoute
@@ -71,13 +80,14 @@ export interface FileRoutesById {
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/gallery' | '/history' | '/items' | '/settings'
+  fullPaths: '/' | '/auth' | '/gallery' | '/history' | '/items' | '/settings'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/gallery' | '/history' | '/items' | '/settings'
+  to: '/' | '/auth' | '/gallery' | '/history' | '/items' | '/settings'
   id:
     | '__root__'
     | '/'
     | '/_authenticated'
+    | '/auth'
     | '/gallery'
     | '/history'
     | '/items'
@@ -87,6 +97,7 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
+  AuthRoute: typeof AuthRoute
   GalleryRoute: typeof GalleryRoute
   HistoryRoute: typeof HistoryRoute
   ItemsRoute: typeof ItemsRoute
@@ -106,6 +117,13 @@ declare module '@tanstack/react-router' {
       path: ''
       fullPath: '/'
       preLoaderRoute: typeof AuthenticatedRouteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/auth': {
+      id: '/auth'
+      path: '/auth'
+      fullPath: '/auth'
+      preLoaderRoute: typeof AuthRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/gallery': {
@@ -153,6 +171,7 @@ const AuthenticatedRouteRouteWithChildren =
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
+  AuthRoute: AuthRoute,
   GalleryRoute: GalleryRoute,
   HistoryRoute: HistoryRoute,
   ItemsRoute: ItemsRoute,
