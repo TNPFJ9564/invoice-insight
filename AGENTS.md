@@ -10,3 +10,5 @@
 <!-- LOVABLE:END -->
 
 - Inventory backend lives in src/lib/inventory.server.ts (Sheets/Drive via connector gateway, OCR via AI gateway, LINE push) wrapped by server fns in src/lib/inventory.functions.ts; Supabase tables have RLS with no policies and are accessed only via supabaseAdmin in server fns — why: no end-user auth yet, keeps data off the public API.
+- Every LINE Flex carousel bubble, including its summary, declares the same size — LINE rejects mixed sizes.
+- Header, favicon, and PWA icons derive from the same app logo asset — keeps branding consistent across app entry points.

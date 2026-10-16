@@ -325,6 +325,7 @@ export async function sendLine(inv: { invoice_no: string; company_name: string; 
     { type: "text", text: v || "-", size: "xs", color: "#000000", flex: 4, wrap: true, align: "end" }] });
   const summary = {
     type: "bubble",
+    size: "kilo",
     header: { type: "box", layout: "vertical", backgroundColor: "#000000", contents: [
       { type: "text", text: "SOBPRAB DUUGS · บันทึกสำเร็จ", color: "#FFFFFF", size: "xxs", weight: "bold" },
       { type: "text", text: inv.invoice_no || "-", color: "#FFFFFF", size: "xl", weight: "bold" }] },

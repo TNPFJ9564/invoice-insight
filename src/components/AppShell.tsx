@@ -1,13 +1,14 @@
 import { Link } from "@tanstack/react-router";
 import type { ReactNode } from "react";
+import appLogo from "@/assets/bin-logo.jpg";
 
 const nav = [
   { to: "/", label: "สแกนบิล", n: "01" },
   { to: "/history", label: "ประวัติ", n: "02" },
   { to: "/gallery", label: "ภาพบิล", n: "03" },
   { to: "/items", label: "รายการยา", n: "04" },
-  { to: "/settings", label: "ตั้งค่า", n: "05" },
-  { to: "/dashboard", label: "แดชบอร์ด", n: "06" },
+  { to: "/dashboard", label: "แดชบอร์ด", n: "05" },
+  { to: "/settings", label: "ตั้งค่า", n: "06" },
 ] as const;
 
 export function AppShell({ title, kicker, children }: { title: string; kicker: string; children: ReactNode }) {
@@ -15,7 +16,10 @@ export function AppShell({ title, kicker, children }: { title: string; kicker: s
     <div className="min-h-dvh pb-20 md:pb-0">
       <header className="border-b">
         <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3 md:px-8">
-          <Link to="/" className="font-bold tracking-tight">SOBPRAB DUUGS<span className="text-muted-foreground"> / Inventory</span></Link>
+          <Link to="/" className="flex min-w-0 items-center gap-3 font-bold">
+            <img src={appLogo} alt="บิน — โลโก้นกกำลังบิน" width={1024} height={1024} className="h-14 w-14 shrink-0" />
+            <span>SOBPRAB DUUGS<span className="block text-sm font-medium text-muted-foreground">Inventory</span></span>
+          </Link>
           <nav aria-label="เมนูหลัก" className="hidden gap-6 md:flex">
             {nav.map((n) => (
               <Link key={n.to} to={n.to} className="label-caps py-2 text-muted-foreground hover:text-foreground"
