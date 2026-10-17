@@ -19,11 +19,16 @@ const itemSchema = z.object({
   quantity: z.coerce.number(), unit_price: z.coerce.number(), total_price: z.coerce.number(),
   status: z.string().default(""), match_score: z.number().optional(),
   po_product: z.string().optional(), po_qty: z.number().optional(), po_price: z.number().optional(),
+  po_no: z.string().optional(), generic_confirmed: z.boolean().optional(),
+  vat_inclusive_unit_price: z.number().nullable().optional(), vat_inclusive_total_price: z.number().nullable().optional(),
+  candidates: z.array(z.object({ common_name: z.string(), gpu_code: z.string(), tpu_code: z.string(), score: z.number(), source: z.string() })).optional(),
 });
 const invoiceSchema = z.object({
   invoice_no: z.string(), company_name: z.string(), tax_id: z.string(), invoice_date: z.string(),
   salesperson: z.string(), grand_total: z.coerce.number(), image_url: z.string().default(""),
   raw_text: z.string().default(""), items: z.array(itemSchema),
+  po_no: z.string().default(""),
+  price_analysis: z.object({ mode: z.enum(["inclusive", "converted", "review"]), note: z.string(), difference: z.number() }).optional(),
 });
 export type InvoiceDraft = z.infer<typeof invoiceSchema>;
 
@@ -36,9 +41,11 @@ export const processInvoice = createServerFn({ method: "POST" })
       s.runOcr(data.base64, data.mime),
       s.loadReferenceSheets().catch((e) => { console.error(e); return { ttmt: [] as string[][], po: [] as string[][] }; }),
     ]);
-    const items = s.matchItems(ocr.items ?? [], refs.ttmt, refs.po, { tax_id: ocr.tax_id, company_name: ocr.company_name });
+    const { analyzeInvoicePrices } = await import("./invoice-pricing");
+    const pricing = analyzeInvoicePrices(ocr.items ?? [], ocr.grand_total, ocr.vat_amount);
+    const items = s.matchItems(pricing.items, refs.ttmt, refs.po, { tax_id: ocr.tax_id, company_name: ocr.company_name });
     return {
-      draft: { ...ocr, image_url: drive.url, items } as InvoiceDraft,
+      draft: { ...ocr, po_no: ocr.po_no || [...new Set(items.map((it) => it.po_no).filter(Boolean))].join(", "), image_url: drive.url, items, price_analysis: pricing.analysis } as InvoiceDraft,
       driveError: "error" in drive ? drive.error : null,
       refCounts: { ttmt: Math.max(0, refs.ttmt.length - 1), po: Math.max(0, refs.po.length - 1) },
     };
@@ -78,7 +85,7 @@ export const saveInvoice = createServerFn({ method: "POST" })
       await s.appendInvRows(inv.items.map((i) => [ts, inv.invoice_no, inv.company_name, `'${inv.tax_id}`, inv.invoice_date, inv.salesperson,
         i.gpu_code, i.tpu_code, i.product_name, i.quantity, i.unit, i.unit_price, i.total_price, inv.grand_total, inv.image_url, i.common_name, i.status]));
     } catch (e) { sheetError = String((e as Error).message); }
-    const line = data.notify ? await s.sendLine({ ...inv, items: inv.items as any }) : { sent: false, reason: "ปิดการแจ้งเตือน" };
+    const line = data.notify ? await s.sendLine({ ...inv, timestamp: ts, items: inv.items as any }) : { sent: false, reason: "ปิดการแจ้งเตือน" };
     return { id: row.id as string, sheetError, line };
   });
 
@@ -121,6 +128,6 @@ export const testLine = createServerFn({ method: "POST" }).middleware([requireSu
 
 export const dashboardKpi = createServerFn({ method: "GET" }).handler(async () => {
   const s = await import("./inventory.server");
-  const [refs, inv] = await Promise.all([s.loadReferenceSheets(), s.loadInvSheet()]);
+  const [refs, inv] = await Promise.all([s.loadReferenceSheets(true), s.loadInvSheet()]);
   return s.computeKpi(refs.po, inv);
 });

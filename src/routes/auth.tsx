@@ -11,6 +11,8 @@ export const Route = createFileRoute("/auth")({
       { name: "description", content: "เข้าสู่ระบบสำหรับผู้ดูแลระบบเพื่อเข้าหน้าตั้งค่า" },
       { property: "og:title", content: "เข้าสู่ระบบผู้ดูแล — Sobprab Duugs" },
       { property: "og:description", content: "เข้าสู่ระบบผู้ดูแลระบบ" },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary_large_image" },
     ],
   }),
   component: AuthPage,

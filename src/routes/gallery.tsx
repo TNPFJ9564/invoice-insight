@@ -13,6 +13,8 @@ export const Route = createFileRoute("/gallery")({
       { name: "description", content: "ภาพบิลที่อัปโหลดทั้งหมด แตะเพื่อดูขนาดเต็ม" },
       { property: "og:title", content: "ภาพบิล — Sobprab Duugs" },
       { property: "og:description", content: "แกลเลอรีภาพบิลที่อัปโหลด" },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary_large_image" },
     ],
   }),
   loader: ({ context }) => context.queryClient.ensureQueryData(invoicesQuery),
