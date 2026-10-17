@@ -1,6 +1,6 @@
 export type PriceItem = {
   quantity: number; unit_price: number; total_price: number;
-  vat_inclusive_unit_price?: number | null; vat_inclusive_total_price?: number | null;
+  vat_inclusive_unit_price?: number | null | undefined; vat_inclusive_total_price?: number | null | undefined;
 };
 export type PriceAnalysis = { mode: "inclusive" | "converted" | "review"; note: string; difference: number };
 const round = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100;

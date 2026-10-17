@@ -128,6 +128,6 @@ export const testLine = createServerFn({ method: "POST" }).middleware([requireSu
 
 export const dashboardKpi = createServerFn({ method: "GET" }).handler(async () => {
   const s = await import("./inventory.server");
-  const [refs, inv] = await Promise.all([s.loadReferenceSheets(), s.loadInvSheet()]);
+  const [refs, inv] = await Promise.all([s.loadReferenceSheets(true), s.loadInvSheet()]);
   return s.computeKpi(refs.po, inv);
 });

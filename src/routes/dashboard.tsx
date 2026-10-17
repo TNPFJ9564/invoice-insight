@@ -29,9 +29,9 @@ export const Route = createFileRoute("/dashboard")({
 
 function Card({ label, value, sub, big }: { label: string; value: string; sub?: string; big?: boolean }) {
   return (
-    <div className="border bg-background p-5">
+    <div className="min-w-0 border bg-background p-4">
       <p className="label-caps text-muted-foreground">{label}</p>
-      <p className={`mt-2 font-bold tabular-nums ${big ? "text-4xl md:text-5xl" : "text-3xl"}`}>{value}</p>
+      <p className={`mt-2 break-words font-bold tabular-nums ${value.startsWith("฿") ? "text-xl" : big ? "text-4xl" : "text-3xl"}`}>{value}</p>
       {sub && <p className="mt-1 text-xs text-muted-foreground">{sub}</p>}
     </div>
   );
@@ -54,7 +54,7 @@ function Dashboard() {
       <div className="mt-px grid grid-cols-2 gap-px border-x border-b bg-border lg:grid-cols-4">
         <Card label="บิลที่บันทึก" value={k.invoiceCount.toLocaleString("th-TH")} />
         <Card label="บริษัทที่ส่งของ" value={k.supplierCount.toLocaleString("th-TH")} />
-        <Card label="รายการต้องตรวจสอบ" value={k.issueCount.toLocaleString("th-TH")} sub="จำนวน/ราคาไม่ตรง PO" />
+        <Card label="รายการต้องตรวจสอบ" value={k.issueCount.toLocaleString("th-TH")} sub="ชื่อยา จำนวน หรือราคาไม่ตรงข้อมูลอ้างอิง" />
         <Card label="อัตราการจัดส่ง" value={`${k.deliveredPct}%`} sub="ของรายการ PO ทั้งหมด" />
       </div>
 
