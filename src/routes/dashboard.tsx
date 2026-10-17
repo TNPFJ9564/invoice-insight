@@ -2,6 +2,9 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useSuspenseQuery, queryOptions } from "@tanstack/react-query";
 import { AppShell, baht } from "@/components/AppShell";
 import { dashboardKpi } from "@/lib/inventory.functions";
+import { Button } from "@/components/ui/button";
+import { useQueryClient } from "@tanstack/react-query";
+import { RefreshCw } from "lucide-react";
 
 const kpiQuery = queryOptions({
   queryKey: ["dashboard-kpi"],
@@ -16,6 +19,8 @@ export const Route = createFileRoute("/dashboard")({
       { name: "description", content: "สรุปใบสั่งซื้อเทียบกับบิลที่จัดส่งแล้ว มูลค่า รายการค้างส่ง และสถิติอื่น" },
       { property: "og:title", content: "แดชบอร์ด KPI — Sobprab Duugs" },
       { property: "og:description", content: "สรุปใบสั่งซื้อเทียบกับบิลที่จัดส่งแล้ว" },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary_large_image" },
     ],
   }),
   loader: ({ context }) => context.queryClient.ensureQueryData(kpiQuery),
@@ -33,12 +38,14 @@ function Card({ label, value, sub, big }: { label: string; value: string; sub?: 
 }
 
 function Dashboard() {
-  const { data: k } = useSuspenseQuery(kpiQuery);
+  const { data: k, isFetching } = useSuspenseQuery(kpiQuery);
+  const qc = useQueryClient();
 
   return (
     <AppShell kicker="06 — Dashboard" title="แดชบอร์ด KPI">
+      <div className="mb-4 flex justify-end"><Button variant="outline" disabled={isFetching} onClick={() => qc.invalidateQueries({ queryKey: ["dashboard-kpi"] })}><RefreshCw className={isFetching ? "animate-spin" : ""} />อัปเดตข้อมูล</Button></div>
       <div className="grid grid-cols-2 gap-px border bg-border lg:grid-cols-4">
-        <Card label="PO ที่สั่งทั้งหมด" value={k.poCount.toLocaleString("th-TH")} sub="รายการในใบสั่งซื้อ" big />
+        <Card label="รายการยาที่สั่ง" value={k.poCount.toLocaleString("th-TH")} sub={`${k.poOrderCount.toLocaleString("th-TH")} ใบสั่งซื้อ (เลข PO ไม่ซ้ำ)`} big />
         <Card label="มูลค่ารวมทั้งหมด" value={`฿${baht(k.poValue)}`} sub="จำนวน × ราคาต่อหน่วย" big />
         <Card label="จัดส่งแล้ว" value={k.deliveredCount.toLocaleString("th-TH")} sub={`฿${baht(k.deliveredValue)} · ${k.deliveredPct}%`} big />
         <Card label="ยังไม่ส่ง" value={k.pendingCount.toLocaleString("th-TH")} sub={`฿${baht(k.pendingValue)}`} big />
