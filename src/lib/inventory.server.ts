@@ -1,5 +1,4 @@
 // Server-only helpers: Google Sheets / Drive (via Lovable connector gateway), Lovable AI OCR, LINE.
-import { analyzeInvoicePrices } from "./invoice-pricing";
 export const SHEET_ID = "1frg6i2D6aK9neM4PSEO9yhR4YvlcG3o3msBooMI7lKk";
 export const DRIVE_FOLDER_ID = "1uQQUoMAjMpb7wo3Gy-yAHtQRZs3WYFRL";
 const GW = "https://connector-gateway.lovable.dev";
@@ -83,7 +82,7 @@ export async function uploadToDrive(base64: string, mime: string, name: string) 
 }
 
 // ---------- OCR (Lovable AI) ----------
-export type OcrItem = { product_name: string; common_name?: string; gpu_code?: string; tpu_code?: string; unit?: string; quantity: number; unit_price: number; total_price: number; vat_inclusive_unit_price?: number | null; vat_inclusive_total_price?: number | null; generic_confirmed?: boolean };
+export type OcrItem = { product_name: string; common_name?: string; gpu_code?: string; tpu_code?: string; unit?: string; quantity: number; unit_price: number; total_price: number; vat_inclusive_unit_price?: number | null | undefined; vat_inclusive_total_price?: number | null | undefined; generic_confirmed?: boolean | undefined };
 export type OcrResult = {
   company_name: string; tax_id: string; invoice_no: string; invoice_date: string; salesperson: string;
   grand_total: number; po_no?: string; vat_amount?: number | null; raw_text: string; items: OcrItem[];

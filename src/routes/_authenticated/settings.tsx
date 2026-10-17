@@ -13,6 +13,8 @@ export const Route = createFileRoute("/_authenticated/settings")({
       { name: "description", content: "สถานะการเชื่อมต่อ Google Sheets, Drive, LINE และการตั้งค่าแจ้งเตือน" },
       { property: "og:title", content: "ตั้งค่าระบบ — Sobprab Duugs" },
       { property: "og:description", content: "การตั้งค่าผู้ดูแลระบบ" },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary_large_image" },
     ],
   }),
   component: Settings,

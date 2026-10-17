@@ -14,6 +14,8 @@ export const Route = createFileRoute("/history")({
       { name: "description", content: "ประวัติบิลที่บันทึก พร้อมภาพบิลและรายการยา" },
       { property: "og:title", content: "ประวัติการบันทึก — Sobprab Duugs" },
       { property: "og:description", content: "ดูบิลที่บันทึกแล้ว ภาพบิล และส่งออกข้อมูล" },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary_large_image" },
     ],
   }),
   loader: ({ context }) => context.queryClient.ensureQueryData(invoicesQuery),

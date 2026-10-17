@@ -12,6 +12,8 @@ export const Route = createFileRoute("/items")({
       { name: "description", content: "ตารางรายการยาทั้งหมดจากบิลที่บันทึก" },
       { property: "og:title", content: "รายการยาที่บันทึก — Sobprab Duugs" },
       { property: "og:description", content: "ตารางรายการยา ชื่อการค้า ชื่อสามัญ GPU TPU" },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary_large_image" },
     ],
   }),
   loader: ({ context }) => context.queryClient.ensureQueryData(invoicesQuery),
