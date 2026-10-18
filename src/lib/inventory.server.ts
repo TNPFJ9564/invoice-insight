@@ -368,7 +368,7 @@ export async function sendLine(inv: { invoice_no: string; po_no?: string; timest
         { type: "text", text: "รวมสุทธิ", weight: "bold", size: "sm" },
         { type: "text", text: `฿${fmt(inv.grand_total)}`, weight: "bold", size: "lg", align: "end" }] }] },
     ...(inv.image_url ? { footer: { type: "box", layout: "vertical", contents: [
-      { type: "button", style: "primary", color: "#000000", height: "sm", action: { type: "uri", label: "ดูรูปบิล", uri: inv.image_url } }] } } : {}),
+      { type: "button", style: "primary", color: "#000000", height: "sm", action: { type: "uri", label: "ดูรูปถ่ายบิล", uri: inv.image_url } }] } } : {}),
   };
   const itemBubbles = [];
   for (let i = 0; i < inv.items.length && itemBubbles.length < 11; i += 5) {
