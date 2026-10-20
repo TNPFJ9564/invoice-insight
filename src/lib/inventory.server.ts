@@ -32,7 +32,7 @@ export async function loadReferenceSheets(force = false) {
 }
 
 export async function appendInvRows(rows: (string | number)[][]) {
-  const url = `${GW}/google_sheets/v4/spreadsheets/${SHEET_ID}/values/INV!A:Q:append?valueInputOption=USER_ENTERED&insertDataOption=INSERT_ROWS`;
+  const url = `${GW}/google_sheets/v4/spreadsheets/${SHEET_ID}/values/INV!A:R:append?valueInputOption=USER_ENTERED&insertDataOption=INSERT_ROWS`;
   await ok(
     await fetch(url, {
       method: "POST",
@@ -44,7 +44,7 @@ export async function appendInvRows(rows: (string | number)[][]) {
 }
 
 export async function loadInvSheet() {
-  const url = `${GW}/google_sheets/v4/spreadsheets/${SHEET_ID}/values/INV!A1:Q5000?valueRenderOption=UNFORMATTED_VALUE`;
+  const url = `${GW}/google_sheets/v4/spreadsheets/${SHEET_ID}/values/INV!A1:R5000?valueRenderOption=UNFORMATTED_VALUE`;
   const res = await ok(await fetch(url, { headers: gwHeaders("GOOGLE_SHEETS_API_KEY") }), "Read INV");
   const j = (await res.json()) as { values?: string[][] };
   return j.values ?? [];
