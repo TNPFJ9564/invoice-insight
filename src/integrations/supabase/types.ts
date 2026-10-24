@@ -112,6 +112,39 @@ export type Database = {
         }
         Relationships: []
       }
+      sheet_month_archives: {
+        Row: {
+          captured_at: string
+          created_at: string
+          headers: Json
+          id: string
+          month: string
+          rows: Json
+          source: string
+          updated_at: string
+        }
+        Insert: {
+          captured_at?: string
+          created_at?: string
+          headers?: Json
+          id?: string
+          month: string
+          rows?: Json
+          source: string
+          updated_at?: string
+        }
+        Update: {
+          captured_at?: string
+          created_at?: string
+          headers?: Json
+          id?: string
+          month?: string
+          rows?: Json
+          source?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           id: string
