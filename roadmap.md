@@ -1,4 +1,7 @@
 # Tasks
+- [ ] Add Bangkok Timestamp month filtering and shared history selection across inventory views.
+- [ ] Archive calculated PO and INV sheet rows durably in Supabase and support scheduled synchronization.
+- [ ] Verify month boundaries, retention and monthly page navigation with tests and the live app.
 - [x] Analyze VAT-inclusive invoice prices and preserve evidence for review.
 - [x] Offer ranked generic-name choices and editable OCR/matching fields.
 - [x] Correct KPI reads of calculated PO cells and actual order lines.
