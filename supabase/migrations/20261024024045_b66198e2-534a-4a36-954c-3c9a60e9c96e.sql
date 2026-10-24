@@ -1,0 +1,1 @@
+CREATE POLICY "Server manages monthly sheet archives" ON public.sheet_month_archives FOR ALL TO service_role USING (true) WITH CHECK (true);
