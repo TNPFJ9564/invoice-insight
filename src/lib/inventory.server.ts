@@ -1,7 +1,14 @@
-// Server-only helpers: Google Sheets / Drive (via Lovable connector gateway), Lovable AI OCR, LINE.
+// Server-only helpers: Google Sheets / Drive (direct API), OpenRouter/OpenAI OCR, LINE.
 export const SHEET_ID = "1frg6i2D6aK9neM4PSEO9yhR4YvlcG3o3msBooMI7lKk";
 export const DRIVE_FOLDER_ID = "1uQQUoMAjMpb7wo3Gy-yAHtQRZs3WYFRL";
-const GW = "https://connector-gateway.lovable.dev";
+const LEGACY_GW = "https://connector-gateway.lovable.dev";
+const LEGACY_AI_URL = "https://ai.gateway.lovable.dev/v1/responses";
+
+function requireEnv(name: string) {
+  const value = process.env[name];
+  if (!value) throw new Error(`Missing ${name}`);
+  return value;
+}
 
 function gwHeaders(connKeyEnv: string) {
   const lk = process.env["LOVABLE_API_KEY"];
@@ -19,24 +26,32 @@ async function ok(res: Response, label: string) {
   return res;
 }
 
+function extractJsonPayload(text: string): string {
+  const trimmed = text.trim();
+  const withoutFence = trimmed.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/i, "");
+  return withoutFence || trimmed;
+}
+
 // ---------- Sheets ----------
 let refCache: { at: number; ttmt: string[][]; po: string[][] } | null = null;
 
 export async function loadReferenceSheets(force = false) {
   if (!force && refCache && Date.now() - refCache.at < 5 * 60_000) return refCache;
-  const url = `${GW}/google_sheets/v4/spreadsheets/${SHEET_ID}/values:batchGet?ranges=TTMT!A1:Z5000&ranges=PO!A1:Z5000&valueRenderOption=UNFORMATTED_VALUE`;
-  const res = await ok(await fetch(url, { headers: gwHeaders("GOOGLE_SHEETS_API_KEY") }), "Read sheets");
+  const key = requireEnv("GOOGLE_SHEETS_API_KEY");
+  const url = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values:batchGet?ranges=TTMT!A1:Z5000&ranges=PO!A1:Z5000&valueRenderOption=UNFORMATTED_VALUE&key=${encodeURIComponent(key)}`;
+  const res = await ok(await fetch(url), "Read sheets");
   const j = (await res.json()) as { valueRanges: { values?: string[][] }[] };
   refCache = { at: Date.now(), ttmt: j.valueRanges[0]?.values ?? [], po: j.valueRanges[1]?.values ?? [] };
   return refCache;
 }
 
 export async function appendInvRows(rows: (string | number)[][]) {
-  const url = `${GW}/google_sheets/v4/spreadsheets/${SHEET_ID}/values/INV!A:R:append?valueInputOption=USER_ENTERED&insertDataOption=INSERT_ROWS`;
+  const key = requireEnv("GOOGLE_SHEETS_API_KEY");
+  const url = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/INV!A:R:append?valueInputOption=USER_ENTERED&insertDataOption=INSERT_ROWS&key=${encodeURIComponent(key)}`;
   await ok(
     await fetch(url, {
       method: "POST",
-      headers: { ...gwHeaders("GOOGLE_SHEETS_API_KEY"), "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ values: rows }),
     }),
     "Append INV",
@@ -44,51 +59,84 @@ export async function appendInvRows(rows: (string | number)[][]) {
 }
 
 export async function loadInvSheet() {
-  const url = `${GW}/google_sheets/v4/spreadsheets/${SHEET_ID}/values/INV!A1:R5000?valueRenderOption=UNFORMATTED_VALUE`;
-  const res = await ok(await fetch(url, { headers: gwHeaders("GOOGLE_SHEETS_API_KEY") }), "Read INV");
+  const key = requireEnv("GOOGLE_SHEETS_API_KEY");
+  const url = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/INV!A1:R5000?valueRenderOption=UNFORMATTED_VALUE&key=${encodeURIComponent(key)}`;
+  const res = await ok(await fetch(url), "Read INV");
   const j = (await res.json()) as { values?: string[][] };
   return j.values ?? [];
 }
 
 // ---------- Drive ----------
 export async function uploadToDrive(base64: string, mime: string, name: string) {
-  const headers = gwHeaders("GOOGLE_DRIVE_API_KEY");
+  const driveKey = process.env["GOOGLE_DRIVE_API_KEY"] ?? process.env["GOOGLE_API_KEY"];
   const tryUpload = async (parents?: string[]) => {
     const boundary = "b" + Math.random().toString(36).slice(2);
     const meta = JSON.stringify({ name, mimeType: mime, ...(parents ? { parents } : {}) });
     const body =
       `--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${meta}\r\n` +
       `--${boundary}\r\nContent-Type: ${mime}\r\nContent-Transfer-Encoding: base64\r\n\r\n${base64}\r\n--${boundary}--`;
-    return fetch(`${GW}/google_drive/upload/drive/v3/files?uploadType=multipart&fields=id,webViewLink&supportsAllDrives=true`, {
+    const url = new URL("https://www.googleapis.com/upload/drive/v3/files");
+    url.searchParams.set("uploadType", "multipart");
+    url.searchParams.set("fields", "id,webViewLink");
+    url.searchParams.set("supportsAllDrives", "true");
+    if (driveKey) url.searchParams.set("key", driveKey);
+    return fetch(url.toString(), {
+      method: "POST",
+      headers: { "Content-Type": `multipart/related; boundary=${boundary}` },
+      body,
+    });
+  };
+
+  let res = await tryUpload([DRIVE_FOLDER_ID]).catch((err) => {
+    console.warn("Direct Drive upload failed:", err);
+    return new Response(null, { status: 500, statusText: String(err) });
+  });
+
+  if (!res.ok && process.env["LOVABLE_API_KEY"]) {
+    console.warn("Drive direct upload failed, retrying through Lovable legacy gateway", res.status, await res.text().catch(() => ""));
+    const headers = gwHeaders("GOOGLE_DRIVE_API_KEY");
+    const boundary = "b" + Math.random().toString(36).slice(2);
+    const meta = JSON.stringify({ name, mimeType: mime, parents: [DRIVE_FOLDER_ID] });
+    const body =
+      `--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${meta}\r\n` +
+      `--${boundary}\r\nContent-Type: ${mime}\r\nContent-Transfer-Encoding: base64\r\n\r\n${base64}\r\n--${boundary}--`;
+    res = await fetch(`${LEGACY_GW}/google_drive/upload/drive/v3/files?uploadType=multipart&fields=id,webViewLink&supportsAllDrives=true`, {
       method: "POST",
       headers: { ...headers, "Content-Type": `multipart/related; boundary=${boundary}` },
       body,
     });
-  };
-  let res = await tryUpload([DRIVE_FOLDER_ID]);
-  if (!res.ok) {
-    console.warn("Drive folder upload failed, retrying in root", res.status, await res.text());
-    res = await tryUpload();
   }
+
   await ok(res, "Drive upload");
   const f = (await res.json()) as { id: string; webViewLink?: string };
-  // make viewable so the app can show the bill image
-  await fetch(`${GW}/google_drive/drive/v3/files/${f.id}/permissions`, {
-    method: "POST",
-    headers: { ...headers, "Content-Type": "application/json" },
-    body: JSON.stringify({ role: "reader", type: "anyone" }),
-  }).catch(() => null);
+
+  if (driveKey) {
+    try {
+      await fetch(`https://www.googleapis.com/drive/v3/files/${f.id}/permissions?key=${encodeURIComponent(driveKey)}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ role: "reader", type: "anyone" }),
+      }).catch(() => null);
+    } catch {}
+  } else if (process.env["LOVABLE_API_KEY"]) {
+    await fetch(`${LEGACY_GW}/google_drive/drive/v3/files/${f.id}/permissions`, {
+      method: "POST",
+      headers: { ...gwHeaders("GOOGLE_DRIVE_API_KEY"), "Content-Type": "application/json" },
+      body: JSON.stringify({ role: "reader", type: "anyone" }),
+    }).catch(() => null);
+  }
+
   return { id: f.id, url: f.webViewLink ?? `https://drive.google.com/file/d/${f.id}/view` };
 }
 
-// ---------- OCR (Lovable AI) ----------
-export type OcrItem = { product_name: string; common_name?: string; gpu_code?: string; tpu_code?: string; unit?: string; quantity: number; unit_price: number; total_price: number; vat_inclusive_unit_price?: number | null | undefined; vat_inclusive_total_price?: number | null | undefined; generic_confirmed?: boolean | undefined };
+// ---------- OCR ----------
+export type OcrItem = { product_name: string; common_name?: string; gpu_code?: string; tpu_code?: string; unit?: string; quantity: number; unit_price: number; total_price: number; vat_inclusive_unit_price?: number | null; vat_inclusive_total_price?: number | null; generic_confirmed?: boolean };
 export type OcrResult = {
   company_name: string; tax_id: string; invoice_no: string; invoice_date: string; salesperson: string;
   grand_total: number; po_no?: string; vat_amount?: number | null; raw_text: string; items: OcrItem[];
 };
 
-export async function runOcr(base64: string, mime: string): Promise<OcrResult> {
+async function runLegacyLovableOcr(base64: string, mime: string): Promise<OcrResult> {
   const key = process.env["LOVABLE_API_KEY"];
   if (!key) throw new Error("Missing LOVABLE_API_KEY");
   const S = { type: "string" }, N = { type: "number" };
@@ -103,7 +151,7 @@ export async function runOcr(base64: string, mime: string): Promise<OcrResult> {
     },
     required: ["company_name", "tax_id", "invoice_no", "po_no", "invoice_date", "salesperson", "grand_total", "vat_amount", "raw_text", "items"],
   };
-  const res = await fetch("https://ai.gateway.lovable.dev/v1/responses", {
+  const res = await fetch(LEGACY_AI_URL, {
     method: "POST",
     headers: { "Lovable-API-Key": key, Authorization: `Bearer ${key}`, "Content-Type": "application/json", "X-Lovable-AIG-SDK": "fetch" },
     body: JSON.stringify({
@@ -111,9 +159,9 @@ export async function runOcr(base64: string, mime: string): Promise<OcrResult> {
       stream: true,
       store: false,
       reasoning: { effort: "low" },
-      instructions: "You are an OCR engine for Thai pharmaceutical invoices. Extract data exactly as printed. Numbers as plain numbers (no commas). Tax ID 13 digits only. Dates as printed. Use empty string when missing. product_name = trade name as printed. common_name = generic name only if printed on the bill (often after the trade name or in parentheses), else empty. unit = counting unit of the quantity as printed (e.g. กล่อง, ขวด, แผง, เม็ด, box, vial). GPU/TPU codes only if printed on the bill. raw_text = full OCR text.",
+      instructions: "You are an OCR engine for Thai pharmaceutical invoices. Extract data exactly as printed. Numbers as plain numbers (no commas). Tax ID 13 digits only. Dates as printed.",
       input: [{ role: "user", content: [
-        { type: "input_text", text: "Extract the invoice data as JSON. Extract po_no only when printed. grand_total is the final payable total including VAT and discounts. vat_amount is printed VAT or null. For each item preserve printed unit_price and total_price. If separate VAT-inclusive unit or line prices are printed, extract them in vat_inclusive_unit_price / vat_inclusive_total_price; otherwise null. Do not invent or calculate these fields. Distinguish 7% VAT from discounts and VAT-exempt items." },
+        { type: "input_text", text: "Extract the invoice data as JSON. Extract po_no only when printed. grand_total is the final payable total including VAT and discounts. vat_amount is printed VAT value or null. Return the JSON object only." },
         { type: "input_image", image_url: `data:${mime};base64,${base64}` },
       ] }],
       text: { format: { type: "json_schema", name: "invoice", strict: true, schema } },
@@ -122,7 +170,6 @@ export async function runOcr(base64: string, mime: string): Promise<OcrResult> {
   if (res.status === 429) throw new Error("ระบบ AI ถูกใช้งานหนาแน่น กรุณาลองใหม่อีกครั้ง");
   if (res.status === 402) throw new Error("เครดิต AI หมด กรุณาเติมเครดิตใน Workspace");
   await ok(res, "OCR");
-  // consume SSE stream
   if (!res.body) throw new Error("OCR response is empty");
   const reader = res.body.getReader();
   const dec = new TextDecoder();
@@ -148,6 +195,63 @@ export async function runOcr(base64: string, mime: string): Promise<OcrResult> {
   const text = final || out;
   if (!text) throw new Error("OCR ไม่สามารถอ่านเอกสารได้");
   return JSON.parse(text) as OcrResult;
+}
+
+async function runOpenRouterOcr(base64: string, mime: string): Promise<OcrResult> {
+  const openRouterKey = process.env["OPENROUTER_API_KEY"] ?? process.env["OPENAI_API_KEY"];
+  if (!openRouterKey) throw new Error("Missing OPENROUTER_API_KEY or OPENAI_API_KEY");
+  const isOpenRouter = !!process.env["OPENROUTER_API_KEY"];
+  const endpoint = isOpenRouter ? "https://openrouter.ai/api/v1/chat/completions" : "https://api.openai.com/v1/chat/completions";
+  const model = process.env["OCR_MODEL"] || (isOpenRouter ? "google/gemini-2.0-flash-exp:free" : "gpt-4o-mini");
+  const prompt = `You are a Thai invoice OCR engine. Extract invoice data and return valid JSON only. Include company_name, tax_id, invoice_no, po_no, invoice_date, salesperson, grand_total, vat_amount, raw_text, and items. Each item must include product_name, common_name, gpu_code, tpu_code, unit, quantity, unit_price, total_price, vat_inclusive_unit_price, vat_inclusive_total_price. Use numbers as plain numbers (no commas). If VAT is not clearly printed, set vat_amount to null. If the PO number is not printed, set po_no to null. Return JSON only, no markdown.`;
+  const res = await fetch(endpoint, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${openRouterKey}`,
+      "Content-Type": "application/json",
+      ...(isOpenRouter ? { "HTTP-Referer": "https://invoice-insight.local", "X-Title": "Invoice Insight" } : {}),
+    },
+    body: JSON.stringify({
+      model,
+      messages: [{
+        role: "user",
+        content: [
+          { type: "text", text: prompt },
+          { type: "image_url", image_url: { url: `data:${mime};base64,${base64}` } },
+        ],
+      }],
+      temperature: 0.1,
+      max_tokens: 2500,
+    }),
+  });
+
+  if (!res.ok) {
+    const text = await res.text();
+    console.error("OCR provider failed", res.status, text);
+    throw new Error(`OCR provider failed [${res.status}]: ${text.slice(0, 300)}`);
+  }
+
+  const json = (await res.json()) as any;
+  const rawText = json?.choices?.[0]?.message?.content ?? json?.output_text ?? "";
+  if (!rawText) throw new Error("OCR ไม่สามารถอ่านเอกสารได้");
+  const parsed = JSON.parse(extractJsonPayload(rawText));
+  return parsed as OcrResult;
+}
+
+export async function runOcr(base64: string, mime: string): Promise<OcrResult> {
+  if (process.env["OPENROUTER_API_KEY"] || process.env["OPENAI_API_KEY"]) {
+    try {
+      return await runOpenRouterOcr(base64, mime);
+    } catch (err) {
+      console.warn("OpenRouter/OpenAI OCR failed, falling back to Lovable legacy gateway", err);
+    }
+  }
+
+  if (process.env["LOVABLE_API_KEY"]) {
+    return await runLegacyLovableOcr(base64, mime);
+  }
+
+  throw new Error("Missing OCR provider. Set OPENROUTER_API_KEY or OPENAI_API_KEY (preferred), or LOVABLE_API_KEY for legacy fallback.");
 }
 
 // ---------- Matching ----------
@@ -187,7 +291,7 @@ const actualPoRows = (po: string[][], name: number, qty: number) => po.slice(1).
  * Matching rules:
  * 1. If the bill already gives common name + GPU + TPU, skip the TTMT lookup.
  * 2. Otherwise look up TTMT: exact TPU/GPU first, else trade name (+ manufacturer vs company name).
- * 3. Check against PO: exact GPU/TPU first, else Tax ID + quantity + unit price, else drug name within same Tax ID.
+ * 3. Check against PO: exact GPU/TPU first, else Tax ID + quantity + unit price, else drug name within the same Tax ID.
  */
 export function matchItems(items: OcrItem[], ttmt: string[][], po: string[][], bill: { tax_id: string; company_name: string }): MatchedItem[] {
   const th = ttmt[0] ?? [];
@@ -295,7 +399,6 @@ export function computeKpi(po: string[][], inv: string[][]): KpiResult {
   const pQty = findCol(ph, /^\s*(qual|quan|qty|จำนวน)/i), pPrice = findCol(ph, /price\s*\/\s*unit|ราคา.*หน่วย/i);
   const pGpu = findCol(ph, /gpu/i), pTpu = findCol(ph, /tpu/i);
   const pCompany = findCol(ph, /company|บริษัท|supplier|vendor/i);
-  // INV fixed columns: B invoice_no, C company, D tax, I product, J qty, L unit_price, M total, Q status
   const invRows = inv.slice(1).filter((r) => r[1] || r[8]);
   const poRows = actualPoRows(po, pName, pQty);
   const pNo = findCol(ph, /^\s*po\s*(no|number)/i);
@@ -347,7 +450,7 @@ export function computeKpi(po: string[][], inv: string[][]): KpiResult {
 // ---------- LINE ----------
 const fmt = (n: number) => Number(n || 0).toLocaleString("th-TH", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
-export async function sendLine(inv: { invoice_no: string; po_no?: string; timestamp?: string; company_name: string; invoice_date: string; salesperson: string; grand_total: number; image_url?: string; items: MatchedItem[] }) {
+export async function sendLine(inv: { invoice_no: string; po_no?: string; timestamp?: string; company_name: string; invoice_date: string; salesperson: string; grand_total: number; image_url?: string; items: { product_name: string; common_name?: string; gpu_code?: string; tpu_code?: string; unit?: string; quantity: number; unit_price: number; total_price: number; po_no?: string }[] }) {
   const token = process.env["LINE_CHANNEL_ACCESS_TOKEN"];
   const to = process.env["LINE_TARGET_ID"];
   if (!token || !to) return { sent: false, reason: "ยังไม่ได้ตั้งค่า LINE" };
