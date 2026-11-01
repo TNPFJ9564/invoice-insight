@@ -430,7 +430,7 @@ export function computeKpi(po: string[][], inv: string[][]): KpiResult {
 // ---------- LINE ----------
 const fmt = (n: number) => Number(n || 0).toLocaleString("th-TH", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
-export async function sendLine(inv: { invoice_no: string; po_no?: string; timestamp?: string; company_name: string; invoice_date: string; salesperson: string; grand_total: number; image_url?: string; items: { product_name: string; common_name?: string; gpu_code?: string; tpu_code?: string; unit?: string; quantity: number; unit_price: number; total_price: number; po_no?: string }[] }) {
+export async function sendLine(inv: { invoice_no: string; po_no?: string; timestamp?: string; company_name: string; invoice_date: string; salesperson: string; grand_total: number; image_url?: string; items: { product_name: string; common_name?: string; gpu_code?: string; tpu_code?: string; unit?: string; quantity: number; unit_price: number; total_price: number; po_no?: string; status?: string; match_score?: number }[] }) {
   const token = process.env["LINE_CHANNEL_ACCESS_TOKEN"];
   const to = process.env["LINE_TARGET_ID"];
   if (!token || !to) return { sent: false, reason: "ยังไม่ได้ตั้งค่า LINE" };
