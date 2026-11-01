@@ -2,7 +2,8 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useSuspenseQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { AppShell, Status, baht } from "@/components/AppShell";
-import { invoicesQuery } from "@/lib/invoices-query";
+import { invoicesQuery, monthDeps, monthSearch } from "@/lib/invoices-query";
+import { MonthPicker } from "@/components/MonthPicker";
 import { exportData } from "@/lib/export";
 
 export const Route = createFileRoute("/items")({
@@ -16,12 +17,15 @@ export const Route = createFileRoute("/items")({
       { name: "twitter:card", content: "summary_large_image" },
     ],
   }),
-  loader: ({ context }) => context.queryClient.ensureQueryData(invoicesQuery),
+  validateSearch: monthSearch,
+  loaderDeps: monthDeps,
+  loader: ({ context, deps }) => context.queryClient.ensureQueryData(invoicesQuery(deps.month)),
   component: Items,
 });
 
 function Items() {
-  const { data } = useSuspenseQuery(invoicesQuery);
+  const { month } = Route.useLoaderDeps();
+  const { data } = useSuspenseQuery(invoicesQuery(month));
   const [q, setQ] = useState("");
   const rows = data.flatMap((inv) => inv.invoice_items.map((it: any) => ({ ...it, inv })))
     .filter((r) => `${r.product_name} ${r.common_name} ${r.inv.invoice_no} ${r.gpu_code} ${r.tpu_code}`.toLowerCase().includes(q.toLowerCase()));
@@ -29,6 +33,7 @@ function Items() {
 
   return (
     <AppShell kicker="03 — Ledger" title="รายการยา">
+      <MonthPicker month={month} />
       <div className="flex flex-wrap items-end gap-4">
         <label className="min-w-60 flex-1"><span className="label-caps text-muted-foreground">ค้นหา</span>
           <input className="w-full border-0 border-b bg-transparent py-2 outline-none" value={q} onChange={(e) => setQ(e.target.value)} placeholder="ชื่อยา / GPU / TPU / เลขบิล" /></label>

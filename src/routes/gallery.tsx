@@ -3,7 +3,8 @@ import { useSuspenseQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { AppShell, baht } from "@/components/AppShell";
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/dialog";
-import { invoicesQuery } from "@/lib/invoices-query";
+import { invoicesQuery, monthDeps, monthSearch } from "@/lib/invoices-query";
+import { MonthPicker } from "@/components/MonthPicker";
 import { driveThumb } from "@/lib/export";
 
 export const Route = createFileRoute("/gallery")({
@@ -17,7 +18,9 @@ export const Route = createFileRoute("/gallery")({
       { name: "twitter:card", content: "summary_large_image" },
     ],
   }),
-  loader: ({ context }) => context.queryClient.ensureQueryData(invoicesQuery),
+  validateSearch: monthSearch,
+  loaderDeps: monthDeps,
+  loader: ({ context, deps }) => context.queryClient.ensureQueryData(invoicesQuery(deps.month)),
   component: Gallery,
 });
 
@@ -25,12 +28,14 @@ const full = (url: string) => driveThumb(url).replace("sz=w1200", "sz=w2400");
 const small = (url: string) => driveThumb(url).replace("sz=w1200", "sz=w400");
 
 function Gallery() {
-  const { data } = useSuspenseQuery(invoicesQuery);
+  const { month } = Route.useLoaderDeps();
+  const { data } = useSuspenseQuery(invoicesQuery(month));
   const list = data.filter((i) => i.image_url);
   const [sel, setSel] = useState<any | null>(null);
 
   return (
     <AppShell kicker="03 — Images" title="ภาพบิล">
+      <MonthPicker month={month} />
       <p className="text-sm text-muted-foreground">{list.length} ภาพ</p>
       <ul className="mt-6 grid grid-cols-2 gap-px border bg-border sm:grid-cols-3 lg:grid-cols-5">
         {list.map((inv) => (
