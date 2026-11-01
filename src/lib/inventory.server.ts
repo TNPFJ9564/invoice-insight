@@ -151,50 +151,30 @@ async function runLegacyLovableOcr(base64: string, mime: string): Promise<OcrRes
     },
     required: ["company_name", "tax_id", "invoice_no", "po_no", "invoice_date", "salesperson", "grand_total", "vat_amount", "raw_text", "items"],
   };
-  const res = await fetch(LEGACY_AI_URL, {
+  // Cost-optimized: cheapest vision model, no reasoning, no raw-text echo, capped output.
+  const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
     method: "POST",
-    headers: { "Lovable-API-Key": key, Authorization: `Bearer ${key}`, "Content-Type": "application/json", "X-Lovable-AIG-SDK": "fetch" },
+    headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json", "X-Lovable-AIG-SDK": "fetch" },
     body: JSON.stringify({
-      model: "openai/gpt-6-astra",
-      stream: true,
-      store: false,
-      reasoning: { effort: "low" },
-      instructions: "You are an OCR engine for Thai pharmaceutical invoices. Extract data exactly as printed. Numbers as plain numbers (no commas). Tax ID 13 digits only. Dates as printed.",
-      input: [{ role: "user", content: [
-        { type: "input_text", text: "Extract the invoice data as JSON. Extract po_no only when printed. grand_total is the final payable total including VAT and discounts. vat_amount is printed VAT value or null. Return the JSON object only." },
-        { type: "input_image", image_url: `data:${mime};base64,${base64}` },
-      ] }],
-      text: { format: { type: "json_schema", name: "invoice", strict: true, schema } },
+      model: process.env["OCR_MODEL"] || "google/gemini-2.5-flash-lite",
+      max_tokens: 3000,
+      messages: [
+        { role: "system", content: "Thai pharmaceutical invoice OCR. Extract exactly as printed. Plain numbers, no commas. Tax ID 13 digits. po_no only if printed. grand_total = final payable incl. VAT. vat_amount printed VAT or null. Leave common_name/gpu_code/tpu_code empty unless printed. raw_text must be an empty string." },
+        { role: "user", content: [
+          { type: "text", text: "Return the invoice JSON." },
+          { type: "image_url", image_url: { url: `data:${mime};base64,${base64}` } },
+        ] },
+      ],
+      response_format: { type: "json_schema", json_schema: { name: "invoice", strict: true, schema } },
     }),
   });
   if (res.status === 429) throw new Error("ระบบ AI ถูกใช้งานหนาแน่น กรุณาลองใหม่อีกครั้ง");
   if (res.status === 402) throw new Error("เครดิต AI หมด กรุณาเติมเครดิตใน Workspace");
   await ok(res, "OCR");
-  if (!res.body) throw new Error("OCR response is empty");
-  const reader = res.body.getReader();
-  const dec = new TextDecoder();
-  let buf = "", out = "", final = "";
-  for (;;) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    buf += dec.decode(value, { stream: true });
-    const lines = buf.split("\n");
-    buf = lines.pop() ?? "";
-    for (const l of lines) {
-      if (!l.startsWith("data:")) continue;
-      const d = l.slice(5).trim();
-      if (!d || d === "[DONE]") continue;
-      try {
-        const ev = JSON.parse(d);
-        if (ev.type === "response.output_text.delta") out += ev.delta;
-        else if (ev.type === "response.output_text.done") final = ev.text;
-        else if (ev.type === "response.failed" || ev.type === "error") throw new Error(JSON.stringify(ev).slice(0, 300));
-      } catch (e) { if (e instanceof Error && e.message.startsWith("{")) throw e; }
-    }
-  }
-  const text = final || out;
+  const json = (await res.json()) as { choices?: { message?: { content?: string } }[] };
+  const text = json.choices?.[0]?.message?.content ?? "";
   if (!text) throw new Error("OCR ไม่สามารถอ่านเอกสารได้");
-  return JSON.parse(text) as OcrResult;
+  return JSON.parse(extractJsonPayload(text)) as OcrResult;
 }
 
 async function runOpenRouterOcr(base64: string, mime: string): Promise<OcrResult> {
