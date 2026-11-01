@@ -17,7 +17,7 @@ export async function archiveSheet(source: "PO" | "INV", sheet: string[][]) {
 export async function syncMonthlySheets(force = false) {
   const { data: latest, error } = await supabaseAdmin.from("sheet_month_archives").select("captured_at").order("captured_at", { ascending: false }).limit(1).maybeSingle();
   if (error) throw new Error(error.message);
-  if (!force && latest && Date.now() - new Date(latest.captured_at).getTime() < 86400000) return;
+  if (!force && latest && Date.now() - new Date(latest.captured_at).getTime() < 3600000) return;
   const [refs, inv] = await Promise.all([loadReferenceSheets(true), loadInvSheet()]);
   await archiveSheet("PO", refs.po);
   await archiveSheet("INV", inv);

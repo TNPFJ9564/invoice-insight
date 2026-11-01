@@ -86,6 +86,7 @@ export const saveInvoice = createServerFn({ method: "POST" })
       await s.appendInvRows(inv.items.map((i) => [ts, inv.invoice_no, inv.company_name, `'${inv.tax_id}`, inv.invoice_date, inv.salesperson,
         i.gpu_code, i.tpu_code, i.product_name, i.quantity, i.unit, i.unit_price, i.total_price, inv.grand_total, inv.image_url, i.common_name, i.status, i.po_no || inv.po_no || ""]));
     } catch (e) { sheetError = String((e as Error).message); }
+    try { const a = await import("./monthly-archive.server"); await a.syncMonthlySheets(); } catch (e) { console.warn("monthly archive sync failed", e); }
     const line = data.notify ? await s.sendLine({ ...inv, timestamp: ts, items: inv.items as any }) : { sent: false, reason: "ปิดการแจ้งเตือน" };
     return { id: row.id as string, sheetError, line };
   });
