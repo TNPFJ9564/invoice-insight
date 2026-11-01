@@ -3,7 +3,8 @@ import { useSuspenseQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { toast } from "sonner";
 import { AppShell, Status, baht } from "@/components/AppShell";
-import { invoicesQuery } from "@/lib/invoices-query";
+import { invoicesQuery, monthDeps, monthSearch } from "@/lib/invoices-query";
+import { MonthPicker } from "@/components/MonthPicker";
 import { deleteInvoice } from "@/lib/inventory.functions";
 import { driveThumb, exportData } from "@/lib/export";
 
@@ -18,12 +19,15 @@ export const Route = createFileRoute("/history")({
       { name: "twitter:card", content: "summary_large_image" },
     ],
   }),
-  loader: ({ context }) => context.queryClient.ensureQueryData(invoicesQuery),
+  validateSearch: monthSearch,
+  loaderDeps: monthDeps,
+  loader: ({ context, deps }) => context.queryClient.ensureQueryData(invoicesQuery(deps.month)),
   component: History,
 });
 
 function History() {
-  const { data, refetch, isFetching } = useSuspenseQuery(invoicesQuery);
+  const { month } = Route.useLoaderDeps();
+  const { data, refetch, isFetching } = useSuspenseQuery(invoicesQuery(month));
   const qc = useQueryClient();
   const [q, setQ] = useState("");
   const [open, setOpen] = useState<string | null>(null);
@@ -36,6 +40,7 @@ function History() {
 
   return (
     <AppShell kicker="02 — Archive" title="ประวัติการบันทึก">
+      <MonthPicker month={month} />
       <div className="flex flex-wrap items-end gap-4">
         <label className="min-w-60 flex-1"><span className="label-caps text-muted-foreground">ค้นหา</span>
           <input className="w-full border-0 border-b bg-transparent py-2 outline-none" value={q} onChange={(e) => setQ(e.target.value)} placeholder="เลขที่บิล / บริษัท" /></label>

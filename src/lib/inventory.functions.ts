@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { MONTH_PATTERN, bangkokMonth, monthBounds, timestampMonth } from "./monthly-data";
 
 const requireAdmin = async (context: { supabase: any; userId: string }) => {
   const { data } = await context.supabase.rpc("has_role", { _user_id: context.userId, _role: "admin" });
@@ -85,14 +86,18 @@ export const saveInvoice = createServerFn({ method: "POST" })
       await s.appendInvRows(inv.items.map((i) => [ts, inv.invoice_no, inv.company_name, `'${inv.tax_id}`, inv.invoice_date, inv.salesperson,
         i.gpu_code, i.tpu_code, i.product_name, i.quantity, i.unit, i.unit_price, i.total_price, inv.grand_total, inv.image_url, i.common_name, i.status, i.po_no || inv.po_no || ""]));
     } catch (e) { sheetError = String((e as Error).message); }
+    try { const a = await import("./monthly-archive.server"); await a.syncMonthlySheets(); } catch (e) { console.warn("monthly archive sync failed", e); }
     const line = data.notify ? await s.sendLine({ ...inv, timestamp: ts, items: inv.items as any }) : { sent: false, reason: "ปิดการแจ้งเตือน" };
     return { id: row.id as string, sheetError, line };
   });
 
-export const listInvoices = createServerFn({ method: "GET" }).handler(async () => {
+const monthInput = (d: unknown) => z.object({ month: z.string().regex(MONTH_PATTERN) }).parse(d);
+
+export const listInvoices = createServerFn({ method: "GET" }).inputValidator(monthInput).handler(async ({ data: input }) => {
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+  const { start, end } = monthBounds(input.month);
   const { data, error } = await (supabaseAdmin as any).from("invoices")
-    .select("*, invoice_items(*)").order("created_at", { ascending: false }).limit(500);
+    .select("*, invoice_items(*)").gte("created_at", start).lt("created_at", end).order("created_at", { ascending: false }).limit(1000);
   if (error) throw new Error(error.message);
   return data as any[];
 });
@@ -126,8 +131,16 @@ export const testLine = createServerFn({ method: "POST" }).middleware([requireSu
     items: [{ product_name: "ทดสอบ", common_name: "test", gpu_code: "", tpu_code: "", unit: "กล่อง", quantity: 1, unit_price: 0, total_price: 0, status: "ตรงกัน", match_score: 100 }] });
 });
 
-export const dashboardKpi = createServerFn({ method: "GET" }).handler(async () => {
+export const dashboardKpi = createServerFn({ method: "GET" }).inputValidator(monthInput).handler(async ({ data: input }) => {
   const s = await import("./inventory.server");
-  const [refs, inv] = await Promise.all([s.loadReferenceSheets(true), s.loadInvSheet()]);
-  return s.computeKpi(refs.po, inv);
+  const a = await import("./monthly-archive.server");
+  if (input.month === bangkokMonth()) {
+    const [refs, inv] = await Promise.all([s.loadReferenceSheets(true), s.loadInvSheet()]);
+    let archiveError: string | null = null;
+    try { await a.archiveSheet("PO", refs.po); await a.archiveSheet("INV", inv); } catch (e) { archiveError = (e as Error).message; }
+    const invMonth = [inv[0] ?? [], ...inv.slice(1).filter((r) => timestampMonth(r[0]) === input.month)];
+    return { ...s.computeKpi(refs.po, invMonth), source: "live" as const, archiveError };
+  }
+  const [po, inv] = await Promise.all([a.readMonthlySheet("PO", input.month), a.readMonthlySheet("INV", input.month)]);
+  return { ...s.computeKpi(po, inv.length ? inv : [[]]), source: (po.length ? "archive" : "empty") as "archive" | "empty", archiveError: null };
 });

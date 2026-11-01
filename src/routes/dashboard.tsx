@@ -5,10 +5,12 @@ import { dashboardKpi } from "@/lib/inventory.functions";
 import { Button } from "@/components/ui/button";
 import { useQueryClient } from "@tanstack/react-query";
 import { RefreshCw } from "lucide-react";
+import { MonthPicker } from "@/components/MonthPicker";
+import { monthDeps, monthSearch } from "@/lib/invoices-query";
 
-const kpiQuery = queryOptions({
-  queryKey: ["dashboard-kpi"],
-  queryFn: () => dashboardKpi(),
+const kpiQuery = (month: string) => queryOptions({
+  queryKey: ["dashboard-kpi", month],
+  queryFn: () => dashboardKpi({ data: { month } }),
   staleTime: 60_000,
 });
 
@@ -23,7 +25,9 @@ export const Route = createFileRoute("/dashboard")({
       { name: "twitter:card", content: "summary_large_image" },
     ],
   }),
-  loader: ({ context }) => context.queryClient.ensureQueryData(kpiQuery),
+  validateSearch: monthSearch,
+  loaderDeps: monthDeps,
+  loader: ({ context, deps }) => context.queryClient.ensureQueryData(kpiQuery(deps.month)),
   component: Dashboard,
 });
 
@@ -38,11 +42,14 @@ function Card({ label, value, sub, big }: { label: string; value: string; sub?: 
 }
 
 function Dashboard() {
-  const { data: k, isFetching } = useSuspenseQuery(kpiQuery);
+  const { month } = Route.useLoaderDeps();
+  const { data: k, isFetching } = useSuspenseQuery(kpiQuery(month));
   const qc = useQueryClient();
 
   return (
     <AppShell kicker="06 — Dashboard" title="แดชบอร์ด KPI">
+      <MonthPicker month={month} />
+      {k.source !== "live" && <p className="mb-4 text-sm text-muted-foreground">{k.source === "archive" ? "ข้อมูลย้อนหลังจากที่เก็บรายเดือน" : "ยังไม่มีข้อมูล PO ที่เก็บไว้สำหรับเดือนนี้"}</p>}
       <div className="mb-4 flex justify-end"><Button variant="outline" disabled={isFetching} onClick={() => qc.invalidateQueries({ queryKey: ["dashboard-kpi"] })}><RefreshCw className={isFetching ? "animate-spin" : ""} />อัปเดตข้อมูล</Button></div>
       <div className="grid grid-cols-2 gap-px border bg-border lg:grid-cols-4">
         <Card label="รายการยาที่สั่ง" value={k.poCount.toLocaleString("th-TH")} sub={`${k.poOrderCount.toLocaleString("th-TH")} ใบสั่งซื้อ (เลข PO ไม่ซ้ำ)`} big />
