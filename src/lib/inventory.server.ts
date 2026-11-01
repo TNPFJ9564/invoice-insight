@@ -130,7 +130,7 @@ export async function uploadToDrive(base64: string, mime: string, name: string) 
 }
 
 // ---------- OCR ----------
-export type OcrItem = { product_name: string; common_name?: string; gpu_code?: string; tpu_code?: string; unit?: string; quantity: number; unit_price: number; total_price: number; vat_inclusive_unit_price?: number | null; vat_inclusive_total_price?: number | null; generic_confirmed?: boolean };
+export type OcrItem = { product_name: string; common_name?: string; gpu_code?: string; tpu_code?: string; unit?: string; quantity: number; unit_price: number; total_price: number; vat_inclusive_unit_price?: number | null | undefined; vat_inclusive_total_price?: number | null | undefined; generic_confirmed?: boolean | undefined };
 export type OcrResult = {
   company_name: string; tax_id: string; invoice_no: string; invoice_date: string; salesperson: string;
   grand_total: number; po_no?: string; vat_amount?: number | null; raw_text: string; items: OcrItem[];
