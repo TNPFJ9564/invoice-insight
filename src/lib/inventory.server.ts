@@ -156,7 +156,7 @@ async function runLegacyLovableOcr(base64: string, mime: string): Promise<OcrRes
     method: "POST",
     headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json", "X-Lovable-AIG-SDK": "fetch" },
     body: JSON.stringify({
-      model: process.env["OCR_MODEL"] || "google/gemini-2.5-flash-lite",
+      model: process.env["OCR_MODEL"] || "google/gemini-3.1-flash-lite",
       max_tokens: 3000,
       messages: [
         { role: "system", content: "Thai pharmaceutical invoice OCR. Extract exactly as printed. Plain numbers, no commas. Tax ID 13 digits. po_no only if printed. grand_total = final payable incl. VAT. vat_amount printed VAT or null. Leave common_name/gpu_code/tpu_code empty unless printed. raw_text must be an empty string." },
