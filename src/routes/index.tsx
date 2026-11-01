@@ -27,14 +27,14 @@ const toB64 = (f: File) => new Promise<{ base64: string; mime: string }>((res, r
   const img = new Image();
   const url = URL.createObjectURL(f);
   img.onload = () => {
-    const scale = Math.min(1, 2000 / Math.max(img.width, img.height));
+    const scale = Math.min(1, 1600 / Math.max(img.width, img.height));
     const c = document.createElement("canvas");
     c.width = img.width * scale; c.height = img.height * scale;
     const context = c.getContext("2d");
     if (!context) { URL.revokeObjectURL(url); rej(new Error("ไม่สามารถอ่านรูปภาพได้")); return; }
     context.drawImage(img, 0, 0, c.width, c.height);
     URL.revokeObjectURL(url);
-    res({ base64: c.toDataURL("image/jpeg", 0.88).split(",")[1] ?? "", mime: "image/jpeg" });
+    res({ base64: c.toDataURL("image/jpeg", 0.8).split(",")[1] ?? "", mime: "image/jpeg" });
   };
   img.onerror = rej; img.src = url;
 });
