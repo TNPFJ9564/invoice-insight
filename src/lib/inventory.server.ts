@@ -430,8 +430,7 @@ const fmt = (n: number) => Number(n || 0).toLocaleString("th-TH", { minimumFract
 
 export async function sendLine(inv: { invoice_no: string; po_no?: string; timestamp?: string; company_name: string; invoice_date: string; salesperson: string; grand_total: number; image_url?: string; items: { product_name: string; common_name?: string; gpu_code?: string; tpu_code?: string; unit?: string; quantity: number; unit_price: number; total_price: number; po_no?: string; status?: string; match_score?: number }[] }) {
   const token = process.env["LINE_CHANNEL_ACCESS_TOKEN"];
-  const to = process.env["LINE_TARGET_ID"];
-  if (!token || !to) return { sent: false, reason: "ยังไม่ได้ตั้งค่า LINE" };
+  if (!token) return { sent: false, reason: "ยังไม่ได้ตั้งค่า LINE" };
   const row = (l: string, v: string) => ({ type: "box", layout: "horizontal", contents: [
     { type: "text", text: l, size: "xs", color: "#888888", flex: 2 },
     { type: "text", text: v || "-", size: "xs", color: "#000000", flex: 4, wrap: true, align: "end" }] });
@@ -463,10 +462,10 @@ export async function sendLine(inv: { invoice_no: string; po_no?: string; timest
     ] } });
   }
   const contents = itemBubbles.length ? { type: "carousel", contents: [summary, ...itemBubbles] } : summary;
-  const res = await fetch("https://api.line.me/v2/bot/message/push", {
+  const res = await fetch("https://api.line.me/v2/bot/message/broadcast", {
     method: "POST",
     headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-    body: JSON.stringify({ to, messages: [{ type: "flex", altText: `บันทึกบิล ${inv.invoice_no} ฿${fmt(inv.grand_total)}`, contents }] }),
+    body: JSON.stringify({ messages: [{ type: "flex", altText: `บันทึกบิล ${inv.invoice_no} ฿${fmt(inv.grand_total)}`, contents }] }),
   });
   if (!res.ok) { const t = await res.text(); console.error("LINE", res.status, t); return { sent: false, reason: `LINE ${res.status}: ${t.slice(0, 200)}` }; }
   return { sent: true };
