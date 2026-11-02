@@ -21,6 +21,16 @@ describe("LINE notifications", () => {
     expect(summary).toEqual(expect.arrayContaining(["17/10/2026 15:54", "PO-9", "INV-7", "1", "฿214.00"]));
     expect(textValues(bubbles[1])).toEqual(expect.arrayContaining(["Drug A", "2 กล่อง", "ราคา/หน่วย", "฿107.00", "ราคารวมรายการ", "฿214.00"]));
   });
+  it("broadcasts to all followers without a target ID", async () => {
+    vi.stubEnv("LINE_CHANNEL_ACCESS_TOKEN", "test-token");
+    vi.stubEnv("LINE_TARGET_ID", "");
+    const request = vi.fn().mockResolvedValue(new Response("{}", { status: 200 }));
+    vi.stubGlobal("fetch", request);
+    const r = await sendLine({ invoice_no: "B", company_name: "", invoice_date: "", salesperson: "", grand_total: 0, items: [] });
+    expect(r).toEqual({ sent: true });
+    expect(request.mock.calls[0]?.[0]).toBe("https://api.line.me/v2/bot/message/broadcast");
+    expect(JSON.parse(request.mock.calls[0]?.[1]?.body).to).toBeUndefined();
+  });
   it.each([0, 1, 6, 60])("uses equal bubble sizes for %i items and sends once", async (count) => {
     vi.stubEnv("LINE_CHANNEL_ACCESS_TOKEN", "test-token");
     vi.stubEnv("LINE_TARGET_ID", "test-target");

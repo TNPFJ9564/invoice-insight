@@ -50,7 +50,7 @@ function Settings() {
         {row("Spreadsheet", st && <a className="underline" target="_blank" rel="noreferrer" href={`https://docs.google.com/spreadsheets/d/${st.sheetId}`}>INV / PO / TTMT</a>)}
         {row("Google Drive", st && <a className="underline" target="_blank" rel="noreferrer" href={`https://drive.google.com/drive/folders/${st.folderId}`}>OCR_PIC_UPLOAD {st.drive ? "· เชื่อมต่อแล้ว" : "· ยังไม่เชื่อมต่อ"}</a>)}
         {row("Database", "Supabase · invoices / invoice_items")}
-        {row("LINE OA", st ? (st.line ? "ตั้งค่าแล้ว" : "ยังไม่ได้ตั้งค่า Channel Access Token / Target ID") : "…")}
+        {row("LINE OA", st ? (st.line ? "ตั้งค่าแล้ว · ส่งแบบบรอดแคสต์ถึงผู้ติดตามทุกคน" : "ยังไม่ได้ตั้งค่า Channel Access Token") : "…")}
         {row("แจ้งเตือน LINE", (
           <label className="flex min-h-11 items-center gap-3">
             <input type="checkbox" className="size-5 accent-[var(--primary)]" checked={notify}
