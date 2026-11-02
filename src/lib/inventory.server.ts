@@ -33,25 +33,24 @@ function extractJsonPayload(text: string): string {
 }
 
 // ---------- Sheets ----------
+const SHEETS_GW = "https://connector-gateway.lovable.dev/google_sheets/v4";
 let refCache: { at: number; ttmt: string[][]; po: string[][] } | null = null;
 
 export async function loadReferenceSheets(force = false) {
   if (!force && refCache && Date.now() - refCache.at < 5 * 60_000) return refCache;
-  const key = requireEnv("GOOGLE_SHEETS_API_KEY");
-  const url = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values:batchGet?ranges=TTMT!A1:Z5000&ranges=PO!A1:Z5000&valueRenderOption=UNFORMATTED_VALUE&key=${encodeURIComponent(key)}`;
-  const res = await ok(await fetch(url), "Read sheets");
+  const url = `${SHEETS_GW}/spreadsheets/${SHEET_ID}/values:batchGet?ranges=TTMT!A1:Z5000&ranges=PO!A1:Z5000&valueRenderOption=UNFORMATTED_VALUE`;
+  const res = await ok(await fetch(url, { headers: gwHeaders("GOOGLE_SHEETS_API_KEY") }), "Read sheets");
   const j = (await res.json()) as { valueRanges: { values?: string[][] }[] };
   refCache = { at: Date.now(), ttmt: j.valueRanges[0]?.values ?? [], po: j.valueRanges[1]?.values ?? [] };
   return refCache;
 }
 
 export async function appendInvRows(rows: (string | number)[][]) {
-  const key = requireEnv("GOOGLE_SHEETS_API_KEY");
-  const url = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/INV!A:R:append?valueInputOption=USER_ENTERED&insertDataOption=INSERT_ROWS&key=${encodeURIComponent(key)}`;
+  const url = `${SHEETS_GW}/spreadsheets/${SHEET_ID}/values/INV!A:R:append?valueInputOption=USER_ENTERED&insertDataOption=INSERT_ROWS`;
   await ok(
     await fetch(url, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { ...gwHeaders("GOOGLE_SHEETS_API_KEY"), "Content-Type": "application/json" },
       body: JSON.stringify({ values: rows }),
     }),
     "Append INV",
@@ -59,9 +58,8 @@ export async function appendInvRows(rows: (string | number)[][]) {
 }
 
 export async function loadInvSheet() {
-  const key = requireEnv("GOOGLE_SHEETS_API_KEY");
-  const url = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/INV!A1:R5000?valueRenderOption=UNFORMATTED_VALUE&key=${encodeURIComponent(key)}`;
-  const res = await ok(await fetch(url), "Read INV");
+  const url = `${SHEETS_GW}/spreadsheets/${SHEET_ID}/values/INV!A1:R5000?valueRenderOption=UNFORMATTED_VALUE`;
+  const res = await ok(await fetch(url, { headers: gwHeaders("GOOGLE_SHEETS_API_KEY") }), "Read INV");
   const j = (await res.json()) as { values?: string[][] };
   return j.values ?? [];
 }
