@@ -99,7 +99,21 @@ export const listInvoices = createServerFn({ method: "GET" }).inputValidator(mon
   const { data, error } = await (supabaseAdmin as any).from("invoices")
     .select("*, invoice_items(*)").gte("created_at", start).lt("created_at", end).order("created_at", { ascending: false }).limit(1000);
   if (error) throw new Error(error.message);
-  return data as any[];
+  const saved = (data as any[]).map((d) => ({ ...d, source: "app" }));
+  let sheetRows: unknown[][] = [];
+  try {
+    if (input.month === bangkokMonth()) { const s = await import("./inventory.server"); sheetRows = await s.loadInvSheet(); }
+    else { const a = await import("./monthly-archive.server"); sheetRows = await a.readMonthlySheet("INV", input.month); }
+  } catch (e) { console.warn("INV sheet read failed", e); }
+  const { invoicesFromSheet } = await import("./sheet-invoices");
+  return [...saved, ...invoicesFromSheet(sheetRows, input.month, saved)]
+    .sort((x, y) => String(y.created_at).localeCompare(String(x.created_at))) as any[];
+});
+
+export const listDriveImages = createServerFn({ method: "GET" }).inputValidator(monthInput).handler(async ({ data: input }) => {
+  const s = await import("./inventory.server");
+  const { start, end } = monthBounds(input.month);
+  try { return await s.listDriveFolder(start, end); } catch (e) { console.warn("Drive list failed", e); return []; }
 });
 
 export const deleteInvoice = createServerFn({ method: "POST" })

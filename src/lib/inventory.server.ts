@@ -65,6 +65,15 @@ export async function loadInvSheet() {
 }
 
 // ---------- Drive ----------
+/** Images in the bill folder created within [start, end), including ones the admin uploaded directly. */
+export async function listDriveFolder(start: string, end: string) {
+  const q = `'${DRIVE_FOLDER_ID}' in parents and trashed=false and mimeType contains 'image/' and createdTime >= '${start}' and createdTime < '${end}'`;
+  const url = `${LEGACY_GW}/google_drive/drive/v3/files?q=${encodeURIComponent(q)}&fields=files(id,name,createdTime,webViewLink)&orderBy=createdTime desc&pageSize=1000&supportsAllDrives=true&includeItemsFromAllDrives=true`;
+  const res = await ok(await fetch(url, { headers: gwHeaders("GOOGLE_DRIVE_API_KEY") }), "List Drive");
+  const j = (await res.json()) as { files?: { id: string; name: string; createdTime: string; webViewLink?: string }[] };
+  return (j.files ?? []).map((f) => ({ id: f.id, name: f.name, created_at: f.createdTime, url: f.webViewLink ?? `https://drive.google.com/file/d/${f.id}/view` }));
+}
+
 export async function uploadToDrive(base64: string, mime: string, name: string) {
   const driveKey = process.env["GOOGLE_DRIVE_API_KEY"] ?? process.env["GOOGLE_API_KEY"];
   const tryUpload = async (parents?: string[]) => {
