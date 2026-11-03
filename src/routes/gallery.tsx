@@ -3,7 +3,7 @@ import { useSuspenseQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { AppShell, baht } from "@/components/AppShell";
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/dialog";
-import { invoicesQuery, monthDeps, monthSearch } from "@/lib/invoices-query";
+import { driveImagesQuery, invoicesQuery, monthDeps, monthSearch } from "@/lib/invoices-query";
 import { MonthPicker } from "@/components/MonthPicker";
 import { driveThumb } from "@/lib/export";
 
@@ -20,7 +20,7 @@ export const Route = createFileRoute("/gallery")({
   }),
   validateSearch: monthSearch,
   loaderDeps: monthDeps,
-  loader: ({ context, deps }) => context.queryClient.ensureQueryData(invoicesQuery(deps.month)),
+  loader: ({ context, deps }) => Promise.all([context.queryClient.ensureQueryData(invoicesQuery(deps.month)), context.queryClient.ensureQueryData(driveImagesQuery(deps.month))]),
   component: Gallery,
 });
 
@@ -30,7 +30,11 @@ const small = (url: string) => driveThumb(url).replace("sz=w1200", "sz=w400");
 function Gallery() {
   const { month } = Route.useLoaderDeps();
   const { data } = useSuspenseQuery(invoicesQuery(month));
-  const list = data.filter((i) => i.image_url);
+  const { data: drive } = useSuspenseQuery(driveImagesQuery(month));
+  const linked = new Set(data.map((i) => i.image_url?.match(/\/d\/([^/]+)/)?.[1]).filter(Boolean));
+  const list = [...data.filter((i) => i.image_url),
+    ...drive.filter((f) => !linked.has(f.id)).map((f) => ({ id: `drive:${f.id}`, invoice_no: f.name, company_name: "อัปโหลดใน Google Drive โดยตรง", image_url: f.url, invoice_date: new Date(f.created_at).toLocaleDateString("th-TH"), grand_total: 0, created_at: f.created_at }))]
+    .sort((a, b) => String(b.created_at).localeCompare(String(a.created_at)));
   const [sel, setSel] = useState<any | null>(null);
 
   return (

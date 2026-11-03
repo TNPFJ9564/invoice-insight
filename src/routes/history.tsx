@@ -58,7 +58,7 @@ function History() {
               <span className="col-span-12 text-xs text-muted-foreground sm:col-span-2">{new Date(inv.created_at).toLocaleString("th-TH")}</span>
               <span className="col-span-6 font-bold sm:col-span-3">{inv.invoice_no || "-"}</span>
               <span className="col-span-6 text-right sm:col-span-2 sm:order-last">฿{baht(inv.grand_total)}</span>
-              <span className="col-span-8 truncate sm:col-span-3">{inv.company_name}</span>
+              <span className="col-span-8 truncate sm:col-span-3">{inv.source === "sheet" && <span className="label-caps mr-2 border px-1 text-xs">จากชีท</span>}{inv.company_name}</span>
               <span className="col-span-4 text-right sm:col-span-2"><Status s={inv.status} /></span>
             </button>
             {open === inv.id && (
@@ -77,7 +77,7 @@ function History() {
                       </li>
                     ))}
                   </ul>
-                  <button onClick={() => del(inv.id)} className="label-caps mt-4 min-h-11 text-destructive underline">ลบบิล</button>
+                  {inv.source === "sheet" ? <p className="mt-4 text-xs text-muted-foreground">admin เพิ่มใน Google Sheets INV — แก้ไขหรือลบที่ชีทโดยตรง</p> : <button onClick={() => del(inv.id)} className="label-caps mt-4 min-h-11 text-destructive underline">ลบบิล</button>}
                 </div>
               </div>
             )}
