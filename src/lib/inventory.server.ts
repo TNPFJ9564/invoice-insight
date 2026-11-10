@@ -189,7 +189,7 @@ async function runOpenRouterOcr(base64: string, mime: string): Promise<OcrResult
   if (!openRouterKey) throw new Error("Missing OPENROUTER_API_KEY, OPEN_LOVABLE or OPENAI_API_KEY");
   const isOpenRouter = !!(process.env["OPENROUTER_API_KEY"] || process.env["OPEN_LOVABLE"]);
   const endpoint = isOpenRouter ? "https://openrouter.ai/api/v1/chat/completions" : "https://api.openai.com/v1/chat/completions";
-  const model = process.env["OCR_MODEL"] || (isOpenRouter ? "google/gemini-2.0-flash-exp:free" : "gpt-4o-mini");
+  const model = process.env["OCR_MODEL"] || (isOpenRouter ? "google/gemini-3.1-flash-lite" : "gpt-4o-mini");
   const prompt = `You are a Thai invoice OCR engine. Extract invoice data and return valid JSON only. Include company_name, tax_id, invoice_no, po_no, invoice_date, salesperson, grand_total, vat_amount, raw_text, and items. Each item must include product_name, common_name, gpu_code, tpu_code, unit, quantity, unit_price, total_price, vat_inclusive_unit_price, vat_inclusive_total_price. Use numbers as plain numbers (no commas). If VAT is not clearly printed, set vat_amount to null. If the PO number is not printed, set po_no to null. Return JSON only, no markdown.`;
   const res = await fetch(endpoint, {
     method: "POST",

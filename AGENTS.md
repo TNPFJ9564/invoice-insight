@@ -16,4 +16,4 @@
 - Price reconciliation lives in a pure invoice-pricing module before matching; explicit inclusive evidence and unresolved differences remain visible for review — avoids repeated taxation and enables deterministic tests.
 - Sheets reads request calculated unformatted values; PO lines require a non-error drug name and positive numeric quantity — excludes formula placeholders and summary rows from matching and KPIs.
 - Generic selections carry a confirmation flag through rematching — preserves the user's chosen drug identity while rechecking PO quantities and prices.
-- Bill OCR uses one low-cost vision model call (no reasoning, no raw-text echo, capped output, photos downscaled to 1600px); generic-name and PO matching stay rule-based with no AI — keeps per-bill credit cost minimal.
+- Bill OCR tries OpenRouter with the existing provider secret, then falls back to one low-cost Lovable AI vision call; output stays capped, photos are downscaled to 1600px, and generic-name/PO matching stays rule-based — keeps scans available during provider failures while limiting per-bill cost.

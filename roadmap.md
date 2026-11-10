@@ -10,3 +10,6 @@
 - [x] Move Settings after Dashboard while preserving other menu positions.
 - [x] Use equal LINE carousel bubble sizes, regression-test, and send one test notification (LINE accepted the single push).
 - [x] Final verification: typecheck + 14 tests pass; LINE test push with new card format accepted (sent: true).
+- [x] Verify the OpenRouter secret and replace its retired free model with supported low-cost Gemini 3.1 Flash Lite.
+- [x] Pass all 23 regression tests and scan a test bill through the live web app using automatic Lovable AI fallback.
+- [ ] Verify OCR billed directly through OpenRouter — blocked by the provider's 402 insufficient-credits response; its catalog currently has no free vision models.
