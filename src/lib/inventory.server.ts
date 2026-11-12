@@ -380,6 +380,13 @@ export type KpiResult = {
  * A PO line counts as delivered when an INV row matches it by TPU/GPU code,
  * else by Tax ID + quantity + unit price, else by drug name within the same Tax ID.
  */
+/** PO "Status logistics": delivered only when it says จัดส่งแล้ว and carries a date/time. */
+export function isDeliveredStatus(v: unknown): boolean {
+  const t = String(v ?? "").trim();
+  if (typeof v === "number") return false;
+  return /จัดส่งแล้ว|delivered/i.test(t) && /\d{1,4}\s*[\/:.\-]\s*\d{1,2}/.test(t);
+}
+
 export function computeKpi(po: string[][], inv: string[][]): KpiResult {
   const ph = po[0] ?? [];
   const pTax = findCol(ph, /tax/i), pName = findCol(ph, /drugs?\s*name|ชื่อยา/i);
@@ -390,9 +397,11 @@ export function computeKpi(po: string[][], inv: string[][]): KpiResult {
   const poRows = actualPoRows(po, pName, pQty);
   const pNo = findCol(ph, /^\s*po\s*(no|number)/i);
   const usedInvoices = new Set<string[]>();
+  const pStatus = findCol(ph, /status\s*logistic|สถานะ.*จัดส่ง/i);
 
   const delivered = new Array(poRows.length).fill(false);
   poRows.forEach((r, i) => {
+    if (pStatus >= 0) { delivered[i] = isDeliveredStatus(r[pStatus]); return; }
     const gpu = code(r[pGpu]), tpu = code(r[pTpu]), tax = code(r[pTax]) ? taxCode(r[pTax]) : "";
     const qty = num(r[pQty]), price = num(r[pPrice]);
     let hit: string[] | undefined;

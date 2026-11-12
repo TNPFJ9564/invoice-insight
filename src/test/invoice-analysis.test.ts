@@ -54,3 +54,12 @@ describe("generic suggestions", () => {
     expect(result[0]?.common_name).toBe("Generic");
   });
 });
+describe("PO delivery status", () => {
+  it("counts only rows marked จัดส่งแล้ว with a date/time", () => {
+    const h = [...headers, "Status logistics"];
+    const po = [h, ["1", "", "A", "1", "10", "", "", "จัดส่งแล้ว 10/11/2569 14:30"], ["1", "", "B", "1", "10", "", "", "จัดส่งแล้ว"], ["1", "", "C", "1", "10", "", "", ""]];
+    const k = computeKpi(po, []);
+    expect(k.deliveredCount).toBe(1);
+    expect(k.pendingCount).toBe(2);
+  });
+});
